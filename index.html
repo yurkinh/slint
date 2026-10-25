@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Community documentation for the .NET bindings of the Slint UI toolkit, not affiliated with SixtyFPS GmbH.">
+<title>Slint for .NET</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a reference manual, a sticky contents column beside one reading column of about 70 characters. */
+:root {
+  --bg: #fbfbfd; --surface: #f1f2f7; --fg: #1d1f2b; --muted: #5d6175; --border: #d9dbe5;
+  --accent: #4a3bb8; --note-bg: #efecfb; --note-border: #b9b0ec;
+  --code-keyword: #8b2fa8; --code-string: #1f7a4d; --code-comment: #6e7287; --code-type: #9a5b00; --code-number: #2156b8;
+  --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12131a; --surface: #1b1d27; --fg: #e6e7ef; --muted: #a2a5b8; --border: #2f3242;
+    --accent: #a99bff; --note-bg: #1f1b36; --note-border: #4d4396;
+    --code-keyword: #d79bf0; --code-string: #7fd3a4; --code-comment: #8b8fa6; --code-type: #f0b866; --code-number: #8fb8ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12131a; --surface: #1b1d27; --fg: #e6e7ef; --muted: #a2a5b8; --border: #2f3242;
+  --accent: #a99bff; --note-bg: #1f1b36; --note-border: #4d4396;
+  --code-keyword: #d79bf0; --code-string: #7fd3a4; --code-comment: #8b8fa6; --code-type: #f0b866; --code-number: #8fb8ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.65 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.layout { display: flex; gap: 40px; max-width: 1180px; margin: 0 auto; }
+nav {
+  position: sticky; top: env(safe-area-inset-top, 0px); align-self: flex-start;
+  max-height: 100vh; overflow-y: auto; width: 220px; flex-shrink: 0;
+  padding-block: 32px; font-size: 14px;
+}
+nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav a { display: block; color: var(--muted); text-decoration: none; padding: 3px 10px; border-radius: 4px; }
+nav a:hover { color: var(--fg); background: var(--surface); }
+nav .title { font-weight: 600; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg); margin: 0 10px 12px; }
+main { flex: 1; min-width: 0; max-width: 760px; padding-block: 32px 80px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.25; }
+h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 6px; }
+h2 { font-size: 26px; font-weight: 600; margin: 56px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); scroll-margin-top: 16px; }
+h3 { font-size: 18px; font-weight: 600; margin: 28px 0 8px; }
+p, li { max-width: 70ch; }
+code { font-family: var(--font-mono); font-size: 0.875em; }
+:not(pre) > code { background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; overflow-x: auto; line-height: 1.55; }
+pre code { font-size: 14px; }
+.hljs-keyword, .hljs-built_in, .hljs-literal, .hljs-tag .hljs-name, .hljs-meta { color: var(--code-keyword); }
+.hljs-string, .hljs-attr + .hljs-string, .hljs-attribute { color: var(--code-string); }
+.hljs-comment { color: var(--code-comment); font-style: italic; }
+.hljs-title, .hljs-type, .hljs-class .hljs-title, .hljs-attr { color: var(--code-type); }
+.hljs-number { color: var(--code-number); }
+.table-wrap { overflow-x: auto; margin: 16px 0; }
+table { border-collapse: collapse; font-size: 15px; }
+th, td { border-bottom: 1px solid var(--border); padding: 8px 14px 8px 0; text-align: left; vertical-align: top; }
+th { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.notice { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 6px; padding: 12px 16px; margin: 20px 0 8px; }
+.subtitle { color: var(--muted); font-size: 18px; margin: 0; }
+.version { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); padding-top: 16px; }
+@media (max-width: 860px) {
+  .layout { display: block; }
+  nav { position: static; max-height: none; width: auto; padding-block: 20px 0; }
+  nav ul { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  main { padding-block: 16px 64px; }
+  h1 { font-size: 32px; }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="title">Slint for .NET</div>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#quick-start">Quick Start</a></li>
+    <li><a href="#project-setup">Project Setup</a></li>
+    <li><a href="#generated-code">Generated Code</a></li>
+    <li><a href="#properties-and-callbacks">Properties and Callbacks</a></li>
+    <li><a href="#structs-and-enums">Structs and Enums</a></li>
+    <li><a href="#globals">Globals</a></li>
+    <li><a href="#models">Models</a></li>
+    <li><a href="#window">Window</a></li>
+    <li><a href="#timers-and-async">Timers and Async Code</a></li>
+    <li><a href="#threading">Threading</a></li>
+    <li><a href="#hot-reload">Hot Reload</a></li>
+    <li><a href="#translations">Translations</a></li>
+    <li><a href="#runtime-compilation">Without Generated Code</a></li>
+    <li><a href="#lifetime-and-errors">Lifetime and Errors</a></li>
+    <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#environment-variables">Environment Variables</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#samples">Samples</a></li>
+    <li><a href="#releases">Releases</a></li>
+  </ul>
+</nav>
+<main>
+<h1>Slint for .NET</h1>
+<p class="subtitle">Community .NET bindings for the Slint UI toolkit, in preview.</p>
+<p class="version">yurkinh.slint.net 1.19.0-preview.4 · .NET 10</p>
+
+<div class="notice">
+  <strong>Community project.</strong>
+  These bindings and this page are a community project, not affiliated with or endorsed by SixtyFPS GmbH, the makers of Slint.
+  For the Slint language itself, see the official <a href="https://docs.slint.dev">Slint documentation</a>.
+  Report problems with the .NET bindings on <a href="https://github.com/yurkinh/slint/issues">github.com/yurkinh/slint</a>.
+</div>
+
+<h2 id="overview">Overview</h2>
+<p>
+  <a href="https://slint.dev">Slint</a> is a declarative UI toolkit: you describe the UI in <code>.slint</code> files
+  and write the application logic in another language.
+  These bindings let you write that logic in C# on .NET 10.
+</p>
+<ul>
+  <li>The build generates typed C# classes from your <code>.slint</code> files, so properties and callbacks are checked by the compiler.</li>
+  <li>Change the UI and the C# code of a running application with hot reload.</li>
+  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64.</li>
+  <li>The library is compatible with trimming and Native AOT.</li>
+</ul>
+<p>
+  The packages are <a href="https://www.nuget.org/packages/yurkinh.slint.net"><code>yurkinh.slint.net</code></a>
+  and <a href="https://www.nuget.org/packages/yurkinh.slint.net.Compiler"><code>yurkinh.slint.net.Compiler</code></a>, which the first one pulls in.
+  Slint for .NET is a preview: its APIs may still change.
+</p>
+
+<h2 id="quick-start">Quick Start</h2>
+<p>Install the <a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a>, then:</p>
+<ol>
+<li>
+<p>Create a project and add the package:</p>
+<pre><code class="language-sh">dotnet new console -o MyApp
+cd MyApp
+dotnet add package yurkinh.slint.net --prerelease</code></pre>
+</li>
+<li>
+<p>Create <code>ui/app-window.slint</code>:</p>
+<pre><code class="language-plaintext">import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    in-out property &lt;int&gt; counter: 42;
+    callback request-increase-value();
+    VerticalBox {
+        Text {
+            text: "Counter: \{root.counter}";
+        }
+        Button {
+            text: "Increase value";
+            clicked => {
+                root.request-increase-value();
+            }
+        }
+    }
+}</code></pre>
+</li>
+<li>
+<p>Add it to <code>MyApp.csproj</code>:</p>
+<pre><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;SlintFile Include="ui/app-window.slint" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+</li>
+<li>
+<p>Replace <code>Program.cs</code>:</p>
+<pre><code class="language-csharp">using MyApp;
+
+internal static class Program
+{
+    // Windows needs this for the window, see Threading.
+    [STAThread]
+    private static void Main()
+    {
+        using var app = AppWindow.Create();
+        app.OnRequestIncreaseValue(() =&gt; app.Counter++);
+        app.Run();
+    }
+}</code></pre>
+</li>
+<li><p>Run it with <code>dotnet run</code>.</p></li>
+</ol>
+
+<h2 id="project-setup">Project Setup</h2>
+<p>
+  Each <code>&lt;SlintFile&gt;</code> item in the project file generates C# code at build time.
+  Mark files that another <code>&lt;SlintFile&gt;</code> only imports with <code>Generate="false"</code>:
+</p>
+<pre><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;SlintFile Include="ui/app-window.slint" /&gt;
+  &lt;SlintFile Include="ui/widgets.slint" Generate="false" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+<p>These MSBuild properties change the generated code:</p>
+<div class="table-wrap"><table>
+<tr><th>Property</th><th>Meaning</th></tr>
+<tr><td><code>SlintNamespace</code></td><td>The namespace of the generated classes, instead of the root namespace.</td></tr>
+<tr><td><code>SlintStyle</code></td><td>The widget style, such as <code>fluent</code>, <code>material</code>, or <code>cupertino</code>.</td></tr>
+<tr><td><code>SlintCopyToOutput</code></td><td><code>false</code> loads the <code>.slint</code> files from the project directory instead of copying them to the output.</td></tr>
+<tr><td><code>SlintIncludePaths</code></td><td>Directories that imports search, separated by semicolons.</td></tr>
+<tr><td><code>SlintLivePreview</code></td><td><code>true</code> reloads the UI when a <code>.slint</code> file changes, see <a href="#hot-reload">Hot Reload</a>.</td></tr>
+<tr><td><code>SlintTranslationDomain</code>, <code>SlintBundledTranslations</code></td><td>Bundle translations, see <a href="#translations">Translations</a>.</td></tr>
+</table></div>
+<p>For imports from a library, such as <code>import { Button } from "@mylib/button.slint"</code>, add a library path, relative to the project:</p>
+<pre><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;SlintLibraryPath Include="mylib" Path="../mylib/" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+<p>
+  The generated code loads the <code>.slint</code> files at run time,
+  so the build copies them to the output directory, next to the application.
+</p>
+
+<h2 id="generated-code">Generated Code</h2>
+<p>For each <code>&lt;SlintFile&gt;</code>, the build generates C# types in the project's root namespace:</p>
+<div class="table-wrap"><table>
+<tr><th>Slint</th><th>C#</th></tr>
+<tr><td>exported component</td><td>a class with a static <code>Create()</code> method, plus <code>Show()</code>, <code>Hide()</code>, <code>Run()</code>, and <code>Window</code></td></tr>
+<tr><td>global</td><td>a class, available as a property of each component</td></tr>
+<tr><td><code>in</code>, <code>out</code>, and <code>in-out</code> properties</td><td>properties; <code>out</code> properties are read-only</td></tr>
+<tr><td>function</td><td>a method</td></tr>
+<tr><td>callback <code>clicked</code></td><td><code>OnClicked(handler)</code> to set the handler, and <code>InvokeClicked(...)</code> to call it</td></tr>
+<tr><td>struct</td><td>a <code>record</code> with <code>init</code> properties</td></tr>
+<tr><td>enum</td><td>an <code>enum</code></td></tr>
+</table></div>
+<p>
+  Names become PascalCase: <code>request-increase-value</code> becomes <code>RequestIncreaseValue</code>.
+  A component exported under another name too, such as with <code>export { AppWindow as MainWindow }</code>,
+  gets a class for each name.
+</p>
+<p>The types map as follows:</p>
+<div class="table-wrap"><table>
+<tr><th>Slint</th><th>C#</th></tr>
+<tr><td><code>int</code></td><td><code>int</code></td></tr>
+<tr><td><code>float</code>, <code>length</code>, <code>angle</code>, <code>percent</code></td><td><code>float</code></td></tr>
+<tr><td><code>duration</code></td><td><code>TimeSpan</code></td></tr>
+<tr><td><code>string</code></td><td><code>string</code></td></tr>
+<tr><td><code>bool</code></td><td><code>bool</code></td></tr>
+<tr><td><code>color</code></td><td><code>Slint.Color</code></td></tr>
+<tr><td><code>brush</code></td><td><code>Slint.Brush</code>; a <code>Slint.Color</code> converts to it</td></tr>
+<tr><td><code>Point</code></td><td><code>Slint.LogicalPosition</code></td></tr>
+<tr><td><code>image</code></td><td><code>Slint.Image</code></td></tr>
+<tr><td><code>keys</code></td><td><code>Slint.Keys</code></td></tr>
+<tr><td><code>styled-text</code></td><td><code>Slint.StyledText</code></td></tr>
+<tr><td><code>data-transfer</code></td><td><code>Slint.DataTransfer</code></td></tr>
+<tr><td><code>[T]</code></td><td><code>Slint.Model&lt;T&gt;</code></td></tr>
+<tr><td>built-in enums, such as <code>TextWrap</code></td><td><code>Slint.EnumValue</code></td></tr>
+</table></div>
+<p>
+  Numbers convert to integers with saturation and truncation, like in Slint.
+  When you rebuild after changing a <code>.slint</code> file, the generated classes change with it;
+  at run time, the generated code checks that the file still matches, and throws a <code>SlintException</code> if it doesn't.
+</p>
+
+<h2 id="properties-and-callbacks">Properties and Callbacks</h2>
+<p>Given this component:</p>
+<pre><code class="language-plaintext">export component Calculator inherits Window {
+    in-out property &lt;int&gt; total;
+    out property &lt;bool&gt; is-negative: total &lt; 0;
+    callback add(int) -&gt; int;
+    callback reset();
+    public function describe() -&gt; string {
+        return "Total: \{total}";
+    }
+}</code></pre>
+<p>the generated <code>Calculator</code> class works like this:</p>
+<pre><code class="language-csharp">using var calculator = Calculator.Create();
+
+calculator.Total = 10;
+bool negative = calculator.IsNegative;   // out properties are read-only
+
+// A callback with arguments and a return value takes a Func.
+calculator.OnAdd(value =&gt; calculator.Total += value);
+calculator.OnReset(() =&gt; calculator.Total = 0);
+
+int result = calculator.InvokeAdd(5);    // calls the handler, like Slint does
+string text = calculator.Describe();     // public functions are methods</code></pre>
+<p>
+  Setting a handler replaces the previous one.
+  An exception that a handler throws stops the event loop, and <code>Run()</code> throws it again.
+  Outside the event loop, the call that ran the handler throws it, such as <code>InvokeAdd</code>.
+</p>
+
+<h2 id="structs-and-enums">Structs and Enums</h2>
+<p>Structs become records, and enums become C# enums:</p>
+<pre><code class="language-plaintext">export enum Priority { low, normal, high }
+
+export struct TodoItem {
+    title: string,
+    done: bool,
+    priority: Priority = Priority.normal,
+}</code></pre>
+<pre><code class="language-csharp">var item = new TodoItem { Title = "Write the docs" };
+// Fields start with the defaults that the struct declares.
+Console.WriteLine(item.Priority);        // Normal
+
+// Records are immutable; use `with` to change a field.
+var finished = item with { Done = true };</code></pre>
+<p>
+  Records compare by value.
+  To change a row of a model, replace it with a modified copy, as in <a href="#models">Models</a>.
+</p>
+
+<h2 id="globals">Globals</h2>
+<p>An exported global becomes a class, which each component has as a property:</p>
+<pre><code class="language-plaintext">export global Logic {
+    in-out property &lt;int&gt; the-value;
+    pure callback magic-operation(int) -&gt; int;
+}
+
+export component App inherits Window {
+    Text { text: Logic.magic-operation(Logic.the-value); }
+}</code></pre>
+<pre><code class="language-csharp">using var app = App.Create();
+app.Logic.OnMagicOperation(value =&gt; value * 2);
+app.Logic.TheValue = 42;</code></pre>
+
+<h2 id="models">Models</h2>
+<p>
+  Use a <code>ListModel&lt;T&gt;</code> for the rows of a <code>for</code> repeater, or any array property.
+  Slint updates the UI whenever you change the list:
+</p>
+<pre><code class="language-csharp">var todos = new ListModel&lt;TodoItem&gt;();
+app.Todos = todos;
+todos.Add(new TodoItem { Title = "Write the docs" });
+todos[0] = todos[0] with { Done = true };</code></pre>
+<p>
+  To show your own data, derive from <code>Model&lt;T&gt;</code>,
+  and call <code>NotifyRowChanged</code>, <code>NotifyRowAdded</code>, <code>NotifyRowRemoved</code>, or <code>NotifyReset</code> when it changes.
+  Any <code>IEnumerable&lt;T&gt;</code> also converts to a model, as a copy.
+</p>
+<p><code>Filter</code>, <code>Sort</code>, <code>Map</code>, and <code>Reverse</code> return views of a model that follow its changes:</p>
+<pre><code class="language-csharp">app.OpenTodos = todos.Filter(todo =&gt; !todo.Done).Sort((a, b) =&gt; a.Title.CompareTo(b.Title));</code></pre>
+<p>Reading an array property gives back the model you set, or a read-only model for an array from the <code>.slint</code> file.</p>
+
+<h2 id="window">Window</h2>
+<p>Each component has a <code>Window</code>, for the window it shows in:</p>
+<pre><code class="language-csharp">app.Window.LogicalSize = new LogicalSize(800, 600);
+app.Window.IsMaximized = true;
+app.Window.OnCloseRequested(() =&gt;
+    HasUnsavedChanges() ? CloseRequestResponse.KeepWindowShown : CloseRequestResponse.HideWindow);</code></pre>
+<p>
+  It has the position and size in logical and physical pixels, the scale factor,
+  <code>IsFullscreen</code>, <code>IsMaximized</code>, and <code>IsMinimized</code>, and <code>Show</code>, <code>Hide</code>, and <code>RequestRedraw</code>.
+</p>
+
+<h2 id="timers-and-async">Timers and Async Code</h2>
+<p>Use <code>Slint.Timer</code> to run code after a delay, or repeatedly:</p>
+<pre><code class="language-csharp">using var timer = new Slint.Timer();
+timer.Start(TimerMode.Repeated, TimeSpan.FromSeconds(1), () =&gt; app.Counter++);
+
+Slint.Timer.SingleShot(TimeSpan.FromMilliseconds(500), () =&gt; app.Status = "Ready");</code></pre>
+<p>
+  The name is <code>Slint.Timer</code>, since <code>System.Threading.Timer</code> is also in scope with implicit usings.
+  While the event loop runs, <code>await</code> continues on the Slint thread,
+  so async callbacks can update properties after awaiting:
+</p>
+<pre><code class="language-csharp">app.OnRefresh(async () =&gt;
+{
+    var data = await httpClient.GetStringAsync(url);
+    app.Status = data;
+});</code></pre>
+<p>
+  From another thread, call <code>EventLoop.InvokeFromEventLoop</code> to run code on the Slint thread.
+  To run an async main function, call <code>EventLoop.Run(async () =&gt; { ... })</code>, which returns when the function completes.
+</p>
+
+<h2 id="threading">Threading</h2>
+<p>
+  Slint objects belong to the thread that first uses Slint.
+  Use them from that thread only, and make it the main thread: the one that runs <code>Main</code>.
+  macOS requires the event loop on the main thread.
+</p>
+<p>
+  On Windows, mark <code>Main</code> with <code>[STAThread]</code>.
+  The windowing backend sets up OLE for drag and drop, which needs a single-threaded apartment.
+  Without one, <code>Create</code> and <code>Run</code> throw an <code>InvalidOperationException</code>.
+  Top-level statements can't take the attribute, so write <code>Main</code> out, as in the <a href="#quick-start">Quick Start</a>.
+  The attribute does nothing on macOS and Linux, so keep it for every platform.
+</p>
+<p>
+  Don't make <code>Main</code> <code>async</code>, since an <code>async Main</code> runs in a multithreaded apartment.
+  For asynchronous code, call <code>EventLoop.Run(async () =&gt; { ... })</code> from a synchronous <code>Main</code>.
+</p>
+
+<h2 id="hot-reload">Hot Reload</h2>
+<p>
+  Change the UI and the code of a running application without restarting it:
+  <code>.slint</code> files reload through Slint's live reload, and C# code through .NET Hot Reload.
+</p>
+<h3><code>.slint</code> Files</h3>
+<p>Turn on live reload for Debug builds in your project file:</p>
+<pre><code class="language-xml">&lt;PropertyGroup Condition="'$(Configuration)' == 'Debug'"&gt;
+  &lt;SlintLivePreview&gt;true&lt;/SlintLivePreview&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+<p>
+  The generated code then loads the <code>.slint</code> files from the project directory,
+  and each component reloads in its window when you save a file it uses.
+  The properties and callbacks you set, models included, carry over to the new version.
+  A file with errors keeps the previous version until you fix it.
+  To reload a single file, set <code>LivePreview="true"</code> on its <code>&lt;SlintFile&gt;</code> instead.
+  <code>ComponentInstance.Reloaded</code> tells you when a component reloaded.
+</p>
+<h3>C# Code</h3>
+<p>
+  Run <code>dotnet watch</code>, or start the application in the debugger of Visual Studio, VS Code with C# Dev Kit, or Rider,
+  and apply changes with the IDE's Hot Reload command.
+  A handler you passed to an <code>On…</code> method runs the new code from its next call.
+</p>
+<h3>Both at Once</h3>
+<p>With <code>SlintLivePreview</code> on, run <code>dotnet watch</code>.
+  Saving a <code>.slint</code> file reloads the UI, and saving a <code>.cs</code> file applies the C# change, both without losing the state of the application.</p>
+<h3>What Needs a Restart</h3>
+<ul>
+  <li>Renaming or removing a property, callback, or function that your C# code uses.
+    The reload prints a warning for each member it can't set again,
+    and the generated classes keep the old members, which throw <code>SlintException</code> until you rebuild.</li>
+  <li>A C# change that .NET Hot Reload can't apply, such as a new method signature or a new type.</li>
+  <li>Changes to the project file, such as turning <code>SlintLivePreview</code> on or off.</li>
+</ul>
+<p>Use live reload during development only.</p>
+
+<h2 id="translations">Translations</h2>
+<p>Mark strings for translation with <code>@tr()</code> in <code>.slint</code> files. To bundle gettext <code>.po</code> files into the application, set:</p>
+<pre><code class="language-xml">&lt;PropertyGroup&gt;
+  &lt;SlintTranslationDomain&gt;myapp&lt;/SlintTranslationDomain&gt;
+  &lt;SlintBundledTranslations&gt;translations&lt;/SlintBundledTranslations&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+<p>The build bundles <code>translations/&lt;language&gt;/LC_MESSAGES/myapp.po</code>. After creating a component, switch the language at run time:</p>
+<pre><code class="language-csharp">Translations.SelectBundledTranslation("de");</code></pre>
+<p>
+  An empty string selects the strings as written in the <code>.slint</code> file.
+  To translate with your own code instead, implement <code>ITranslator</code> and pass it to <code>Translations.SetTranslator</code>.
+</p>
+
+<h2 id="runtime-compilation">Without Generated Code</h2>
+<p>
+  <code>Compiler</code> compiles <code>.slint</code> files at run time,
+  and <code>ComponentInstance</code> accesses properties, callbacks, and functions by name.
+  Use it for UIs that you only know at run time, such as plug-ins or user-provided files:
+</p>
+<pre><code class="language-csharp">using var compiler = new Compiler();
+using var result = compiler.BuildFromPath("app-window.slint");
+if (result.HasErrors)
+{
+    foreach (var diagnostic in result.Diagnostics)
+    {
+        Console.Error.WriteLine(diagnostic);
+    }
+    return;
+}
+
+using var definition = result.Component("AppWindow")!;
+using var app = definition.Create();
+app.SetCallback("request-increase-value", _ =&gt; app.SetProperty("counter", (double)app.GetProperty("counter")! + 1));
+app.Run();</code></pre>
+<p>
+  Untyped values are <code>double</code> for numbers, <code>string</code>, <code>bool</code>,
+  <code>Slint.Struct</code> for structs, <code>Slint.EnumValue</code> for enums, and <code>Slint.Model&lt;object?&gt;</code> for arrays.
+  <code>BuildFromSource</code> compiles a string, and <code>Compiler</code> has the style, include paths, and library paths as properties.
+</p>
+
+<h2 id="lifetime-and-errors">Lifetime and Errors</h2>
+<p>
+  Components, timers, images, and compilation results hold native resources; dispose them, such as with <code>using</code>.
+  Slint holds the delegates you pass to <code>On…</code> methods, so a handler that captures its own component keeps it alive
+  until you dispose the component.
+</p>
+<p>
+  Failures in Slint throw <code>SlintException</code>, such as a <code>.slint</code> file that doesn't compile at run time,
+  a generated class that no longer matches its file, or a property that doesn't exist.
+</p>
+
+<h2 id="deployment">Deployment</h2>
+<p>Publish the application for a runtime identifier, which picks the native library of that platform:</p>
+<pre><code class="language-sh">dotnet publish -c Release -r osx-arm64
+dotnet publish -c Release -r win-x64 --self-contained
+dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
+<p>The packages have native binaries for these runtime identifiers:</p>
+<div class="table-wrap"><table>
+<tr><th>Platform</th><th>Runtime identifiers</th></tr>
+<tr><td>macOS</td><td><code>osx-arm64</code>, <code>osx-x64</code></td></tr>
+<tr><td>Linux</td><td><code>linux-x64</code>, <code>linux-arm64</code></td></tr>
+<tr><td>Windows</td><td><code>win-x64</code>, <code>win-arm64</code></td></tr>
+</table></div>
+<ul>
+  <li>The application loads the <code>.slint</code> files, and the images they use, at run time.
+    The build copies the <code>.slint</code> files to the output; ship the images too, at the same paths relative to them.</li>
+  <li>On Windows, set <code>&lt;OutputType&gt;WinExe&lt;/OutputType&gt;</code> to start without a console window.</li>
+  <li>On Linux, the windowing backend loads <code>libxkbcommon-x11</code> at run time, so install it on the target system.</li>
+</ul>
+
+<h2 id="environment-variables">Environment Variables</h2>
+<div class="table-wrap"><table>
+<tr><th>Variable</th><th>Meaning</th></tr>
+<tr><td><code>SLINT_BACKEND</code></td><td>Selects the windowing backend, such as <code>winit</code>, or <code>linuxkms</code> on embedded Linux.</td></tr>
+<tr><td><code>SLINT_ENABLE_EXPERIMENTAL_FEATURES</code></td><td><code>1</code> enables experimental Slint language features, since the generated code compiles the <code>.slint</code> files at run time too.</td></tr>
+<tr><td><code>SLINT_DOTNET_NATIVE_LIBRARY</code></td><td>The path of the native library to load instead of the one in the package, such as a local build.</td></tr>
+</table></div>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3><code>InvalidOperationException</code> about a single-threaded apartment on Windows</h3>
+<p>Mark <code>Main</code> with <code>[STAThread]</code>, and replace top-level statements and <code>async Main</code> with a synchronous <code>Main</code>, see <a href="#threading">Threading</a>.</p>
+<h3>"Slint objects can only be used from the thread that first used Slint"</h3>
+<p>A <code>Task.Run</code> or a thread pool callback touched a component. Use <code>EventLoop.InvokeFromEventLoop</code> to get back to the Slint thread.</p>
+<h3>"is out of date; regenerate it"</h3>
+<p>The <code>.slint</code> file next to the application doesn't match the generated code. Rebuild, and ship the <code>.slint</code> files from the same build.</p>
+<h3>The window doesn't open on Linux</h3>
+<p>Install <code>libxkbcommon-x11</code>, and check that <code>DISPLAY</code> or <code>WAYLAND_DISPLAY</code> is set.</p>
+
+<h2 id="samples">Samples</h2>
+<ul>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/memory/dotnet">Memory game</a>: models, records, callbacks, and a timer.</li>
+</ul>
+<p>More samples will follow.</p>
+
+<h2 id="releases">Releases</h2>
+<p>
+  <a href="https://github.com/yurkinh/slint/blob/dotnet_bindings/api/dotnet/WHATS_NEW.md">What's New</a> lists the changes in each preview.
+  The packages on nuget.org: <a href="https://www.nuget.org/packages/yurkinh.slint.net">yurkinh.slint.net</a>.
+  The source is in the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/api/dotnet"><code>dotnet_bindings</code> branch</a>.
+</p>
+
+<footer>
+  Community project, not affiliated with SixtyFPS GmbH.
+  Slint is a trademark of SixtyFPS GmbH.
+  For the Slint language, see the <a href="https://docs.slint.dev">official documentation</a>.
+</footer>
+</main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  // The Slint snippets use plaintext, since highlight.js has no Slint grammar.
+  if (window.hljs) { hljs.highlightAll(); }
+</script>
+</body>
+</html>
