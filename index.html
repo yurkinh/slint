@@ -97,6 +97,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#structs-and-enums">Structs and Enums</a></li>
     <li><a href="#globals">Globals</a></li>
     <li><a href="#models">Models</a></li>
+    <li><a href="#images">Images</a></li>
     <li><a href="#window">Window</a></li>
     <li><a href="#timers-and-async">Timers and Async Code</a></li>
     <li><a href="#threading">Threading</a></li>
@@ -114,7 +115,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <main>
 <h1>Slint for .NET</h1>
 <p class="subtitle">Community .NET bindings for the Slint UI toolkit, in preview.</p>
-<p class="version">yurkinh.slint.net 1.19.0-preview.5 · .NET 10</p>
+<p class="version">yurkinh.slint.net 1.19.0-preview.6 · .NET 10</p>
 
 <div class="notice">
   <strong>Community project.</strong>
@@ -368,7 +369,27 @@ todos[0] = todos[0] with { Done = true };</code></pre>
 </p>
 <p><code>Filter</code>, <code>Sort</code>, <code>Map</code>, and <code>Reverse</code> return views of a model that follow its changes:</p>
 <pre><code class="language-csharp">app.OpenTodos = todos.Filter(todo =&gt; !todo.Done).Sort((a, b) =&gt; a.Title.CompareTo(b.Title));</code></pre>
+<p>
+  <code>Filter</code> and <code>Sort</code> return a <code>FilterModel</code> and a <code>SortModel</code>.
+  <code>SourceRow</code> maps a row of the view to its row in the source, such as to edit the item that the user selected,
+  and <code>Reset</code> applies a condition that changed outside the model, such as a search text:
+</p>
+<pre><code class="language-csharp">var prefix = "";
+var shown = names.Filter(name =&gt; name.StartsWith(prefix));
+app.OnPrefixEdited(text =&gt; { prefix = text; shown.Reset(); });
+app.OnDeleteClicked(() =&gt; names.RemoveAt(shown.SourceRow(app.CurrentItem)));</code></pre>
 <p>Reading an array property gives back the model you set, or a read-only model for an array from the <code>.slint</code> file.</p>
+
+<h2 id="images">Images</h2>
+<p>
+  <code>Image.Load</code> loads an image file, and <code>Image.LoadFromData</code> decodes a PNG, JPEG, or SVG in memory, such as a download.
+  <code>Image.FromRgba8</code> and <code>Image.FromRgb8</code> create an image from pixels that you computed,
+  and <code>ToRgba8</code> returns the pixels of an image:
+</p>
+<pre><code class="language-csharp">var tile = Image.LoadFromData(await http.GetByteArrayAsync(url), "png");
+var pixels = original.ToRgba8();
+Invert(pixels);
+app.Preview = Image.FromRgba8(original.Width, original.Height, pixels);</code></pre>
 
 <h2 id="window">Window</h2>
 <p>Each component has a <code>Window</code>, for the window it shows in:</p>
@@ -379,6 +400,20 @@ app.Window.OnCloseRequested(() =&gt;
 <p>
   It has the position and size in logical and physical pixels, the scale factor,
   <code>IsFullscreen</code>, <code>IsMaximized</code>, and <code>IsMinimized</code>, and <code>Show</code>, <code>Hide</code>, and <code>RequestRedraw</code>.
+</p>
+
+<p>
+  <code>DispatchEvent</code> sends input to the window as if it came from the windowing system,
+  such as the keys of an on-screen keyboard:
+</p>
+<pre><code class="language-csharp">app.VirtualKeyboardHandler.OnKeyPressed(key =&gt;
+{
+    app.Window.DispatchEvent(new WindowEvent.KeyPressed(key));
+    app.Window.DispatchEvent(new WindowEvent.KeyReleased(key));
+});</code></pre>
+<p>
+  A component that inherits <code>SystemTrayIcon</code> has no window:
+  its class has <code>Show</code> and <code>Hide</code>, which show and hide the icon, but no <code>Window</code> or <code>Run</code>.
 </p>
 
 <h2 id="timers-and-async">Timers and Async Code</h2>
@@ -546,10 +581,34 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <p>Install <code>libxkbcommon-x11</code>, and check that <code>DISPLAY</code> or <code>WAYLAND_DISPLAY</code> is set.</p>
 
 <h2 id="samples">Samples</h2>
+<p>
+  Most examples and demos of Slint have a C# version in their <code>dotnet</code> directory,
+  next to the Rust, C++, Node.js, and Python ones. Run one with <code>dotnet run --project &lt;directory&gt;</code>:
+</p>
 <ul>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/memory/dotnet">Memory game</a>: models, records, callbacks, and a timer.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet">Todo</a>: sorting and filtering with the model adapters, and a confirmation before closing.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo-mvc/dotnet">Todo MVC</a>: controllers, repositories, and adapters for the globals of the UI.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/7guis/dotnet">7GUIs</a>: a flight booker, CRUD with a filtered list, a circle drawer with undo, and a spreadsheet.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/gallery/dotnet">Widgets gallery</a>: every standard widget, a sortable table, and bundled translations.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/printerdemo/dotnet">Printer demo</a>: globals, a progress timer, and switching between English and French.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/energy-monitor/dotnet">Energy monitor</a>: live weather from Open-Meteo, timers, and a kiosk mode.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/weather-demo/dotnet">Weather demo</a>: forecasts and a location search with HttpClient, and a forecast graph.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/home-automation/dotnet">Home automation</a>: a large touch UI with a clock.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/usecases/dotnet">Use cases</a>: a mail box with search, an on-screen keyboard, and the cosmic style.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/slide_puzzle/dotnet">Slide puzzle</a>: game logic in its own class, and spring animations from a timer.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/dnd-kanban/dotnet">Kanban board</a>: drag and drop that carries a C# record in DataTransfer.UserData.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/imagefilter/dotnet">Image filter</a>: filters on the pixels of an image, in plain C#.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/plotter/dotnet">Plotter</a>: a 3D surface plot rendered into pixels.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/maps/dotnet">Maps</a>: OpenStreetMap tiles that load as you pan and zoom.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/virtual_keyboard/dotnet">Virtual keyboard</a>: an on-screen keyboard that sends keys with DispatchEvent.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/system-tray/dotnet">System tray</a>: a tray icon and a window that edits it.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/runtime_key_bindings/dotnet">Runtime key bindings</a>: shortcuts that the user records, saved with Keys.ToParts.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/async-io/dotnet">Async I/O</a>: an async callback that awaits HttpClient.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/launcher/dotnet">Launcher</a>: lists the built C# samples and starts them.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/dotnet-viewer">Viewer</a>: shows any .slint file with the Compiler API, optionally with live reload.</li>
 </ul>
-<p>More samples will follow.</p>
+<p>The carousel, speedometer, food processor, and analog clock have C# versions too, and the viewer shows the examples that have no logic, such as the layouts.</p>
 
 <h2 id="releases">Releases</h2>
 <p>
