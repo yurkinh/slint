@@ -91,6 +91,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#overview">Overview</a></li>
     <li><a href="#quick-start">Quick Start</a></li>
     <li><a href="#project-setup">Project Setup</a></li>
+    <li><a href="#project-files">Project Files and Editions</a></li>
     <li><a href="#generated-code">Generated Code</a></li>
     <li><a href="#properties-and-callbacks">Properties and Callbacks</a></li>
     <li><a href="#structs-and-enums">Structs and Enums</a></li>
@@ -220,6 +221,31 @@ internal static class Program
 <p>
   The generated code loads the <code>.slint</code> files at run time,
   so the build copies them to the output directory, next to the application.
+</p>
+
+<h3 id="project-files">Project Files and Editions</h3>
+<p>
+  A <a href="https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/"><code>slint-project.json</code></a>
+  sets the Slint edition of a project, its main file, and its include and library paths.
+  The edition decides which language fixes apply, such as layout fixes from Slint 1.19.
+  To use one, add the project directory instead of a file:
+</p>
+<pre><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;SlintProject Include="ui" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+<pre><code class="language-json">{
+    "slint-edition": "1.19",
+    "main": "app-window.slint",
+    "include-paths": ["shared"]
+}</code></pre>
+<p>
+  The build generates the classes of the main file, and copies the project file and the <code>.slint</code> files under the directory.
+  The application compiles with the project's edition and paths, both at build time and at run time, and live reload works the same way.
+  Use <code>&lt;SlintProject Include="." /&gt;</code> for a project file next to the <code>.csproj</code>.
+</p>
+<p>
+  <code>SlintIncludePaths</code> and <code>&lt;SlintLibraryPath&gt;</code> don't apply to a project, since its project file has its own paths.
+  A <code>&lt;SlintFile&gt;</code> compiles without a project file, and so without an edition.
 </p>
 
 <h2 id="generated-code">Generated Code</h2>
