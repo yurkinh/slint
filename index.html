@@ -116,7 +116,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <main>
 <h1>Slint for .NET</h1>
 <p class="subtitle">Community .NET bindings for the Slint UI toolkit, in preview.</p>
-<p class="version">yurkinh.slint.net 1.19.0-preview.6 · .NET 10</p>
+<p class="version">yurkinh.slint.net 1.19.0-preview.7 · .NET 10</p>
 
 <div class="notice">
   <strong>Community project.</strong>
@@ -134,7 +134,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <ul>
   <li>The build generates typed C# classes from your <code>.slint</code> files, so properties and callbacks are checked by the compiler.</li>
   <li>Change the UI and the C# code of a running application with hot reload.</li>
-  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64, and from the next preview for <a href="#android">Android</a>.</li>
+  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64, and for <a href="#android">Android</a>.</li>
   <li>The library is compatible with trimming and Native AOT.</li>
 </ul>
 <p>
@@ -545,7 +545,7 @@ app.Run();</code></pre>
 </p>
 
 <h2 id="android">Android</h2>
-<p><em>Coming in the next preview, after 1.19.0-preview.6.</em></p>
+<p><em>From 1.19.0-preview.7.</em></p>
 <p>
   The package also runs on Android 8 (API level 26) and later, on <code>arm64-v8a</code> and <code>x86_64</code> devices and emulators.
   Slint draws into a <code>NativeActivity</code> and runs its event loop on a thread of its own, as in the C++ API.
@@ -594,7 +594,7 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <tr><td>macOS</td><td><code>osx-arm64</code>, <code>osx-x64</code></td></tr>
 <tr><td>Linux</td><td><code>linux-x64</code>, <code>linux-arm64</code></td></tr>
 <tr><td>Windows</td><td><code>win-x64</code>, <code>win-arm64</code></td></tr>
-<tr><td>Android, from the next preview</td><td><code>android-arm64</code>, <code>android-x64</code></td></tr>
+<tr><td>Android, from 1.19.0-preview.7</td><td><code>android-arm64</code>, <code>android-x64</code></td></tr>
 </table></div>
 <ul>
   <li>The application loads the <code>.slint</code> files, and the images they use, at run time.
