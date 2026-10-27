@@ -105,6 +105,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#translations">Translations</a></li>
     <li><a href="#runtime-compilation">Without Generated Code</a></li>
     <li><a href="#lifetime-and-errors">Lifetime and Errors</a></li>
+    <li><a href="#android">Android</a></li>
     <li><a href="#deployment">Deployment</a></li>
     <li><a href="#environment-variables">Environment Variables</a></li>
     <li><a href="#troubleshooting">Troubleshooting</a></li>
@@ -133,7 +134,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <ul>
   <li>The build generates typed C# classes from your <code>.slint</code> files, so properties and callbacks are checked by the compiler.</li>
   <li>Change the UI and the C# code of a running application with hot reload.</li>
-  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64.</li>
+  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64, and from the next preview for <a href="#android">Android</a>.</li>
   <li>The library is compatible with trimming and Native AOT.</li>
 </ul>
 <p>
@@ -543,6 +544,45 @@ app.Run();</code></pre>
   a generated class that no longer matches its file, or a property that doesn't exist.
 </p>
 
+<h2 id="android">Android</h2>
+<p><em>Coming in the next preview, after 1.19.0-preview.6.</em></p>
+<p>
+  The package also runs on Android 8 (API level 26) and later, on <code>arm64-v8a</code> and <code>x86_64</code> devices and emulators.
+  Slint draws into a <code>NativeActivity</code> and runs its event loop on a thread of its own, as in the C++ API.
+  Install the .NET Android workload with <code>dotnet workload install android</code>, then create a project with <code>dotnet new android</code>
+  and set in its project file:
+</p>
+<pre><code class="language-xml">&lt;SupportedOSPlatformVersion&gt;26&lt;/SupportedOSPlatformVersion&gt;
+&lt;RuntimeIdentifiers&gt;android-arm64;android-x64&lt;/RuntimeIdentifiers&gt;</code></pre>
+<p>Add the package and the <code>&lt;SlintFile&gt;</code> items as on the desktop, and derive the main activity from <code>SlintActivity</code>:</p>
+<pre><code class="language-csharp">using Slint.Android;
+
+[Activity(MainLauncher = true, ConfigurationChanges = SlintActivity.ConfigurationChanges)]
+[MetaData(SlintActivity.LibraryNameKey, Value = SlintActivity.LibraryName)]
+public class MainActivity : SlintActivity
+{
+    protected override void SlintMain()
+    {
+        using var app = AppWindow.Create();
+        app.OnRequestIncreaseValue(() =&gt; app.Counter++);
+        app.Run();
+    }
+}</code></pre>
+<ul>
+  <li>Both attributes are needed, since .NET Android only reads them from your own activity.</li>
+  <li><code>SlintMain</code> and every callback run on Slint's thread, not on the Android UI thread.</li>
+  <li>An app has one <code>SlintActivity</code>, which ends the process when Android destroys it, such as after the Back button.
+    Keep what should survive in files or preferences.</li>
+  <li>The build puts the <code>.slint</code> files into the APK, and <code>SlintActivity</code> extracts them at startup.
+    Add the images they use as <code>&lt;SlintFile Include="ui/images/logo.png" Generate="false" /&gt;</code>, under the project directory.</li>
+  <li>Run it with <code>dotnet run</code>, or install the APK with <code>adb install</code>.
+    A Debug build needs <code>&lt;EmbedAssembliesIntoApk&gt;true&lt;/EmbedAssembliesIntoApk&gt;</code> for <code>adb install</code>.</li>
+</ul>
+<p>
+  See the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">todo example for Android</a>,
+  which shares its logic with the desktop version.
+</p>
+
 <h2 id="deployment">Deployment</h2>
 <p>Publish the application for a runtime identifier, which picks the native library of that platform:</p>
 <pre><code class="language-sh">dotnet publish -c Release -r osx-arm64
@@ -554,6 +594,7 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <tr><td>macOS</td><td><code>osx-arm64</code>, <code>osx-x64</code></td></tr>
 <tr><td>Linux</td><td><code>linux-x64</code>, <code>linux-arm64</code></td></tr>
 <tr><td>Windows</td><td><code>win-x64</code>, <code>win-arm64</code></td></tr>
+<tr><td>Android, from the next preview</td><td><code>android-arm64</code>, <code>android-x64</code></td></tr>
 </table></div>
 <ul>
   <li>The application loads the <code>.slint</code> files, and the images they use, at run time.
@@ -577,6 +618,8 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <p>A <code>Task.Run</code> or a thread pool callback touched a component. Use <code>EventLoop.InvokeFromEventLoop</code> to get back to the Slint thread.</p>
 <h3>"is out of date; regenerate it"</h3>
 <p>The <code>.slint</code> file next to the application doesn't match the generated code. Rebuild, and ship the <code>.slint</code> files from the same build.</p>
+<h3>An Android app closes right after it starts</h3>
+<p>Run <code>adb logcat -s Slint</code>: <code>SlintActivity</code> logs an exception of <code>SlintMain</code> under that tag before the activity ends.</p>
 <h3>The window doesn't open on Linux</h3>
 <p>Install <code>libxkbcommon-x11</code>, and check that <code>DISPLAY</code> or <code>WAYLAND_DISPLAY</code> is set.</p>
 
@@ -607,6 +650,8 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/async-io/dotnet">Async I/O</a>: an async callback that awaits HttpClient.</li>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/launcher/dotnet">Launcher</a>: lists the built C# samples and starts them.</li>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/dotnet-viewer">Viewer</a>: shows any .slint file with the Compiler API, optionally with live reload.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/lols">LOLs per second</a>: a port of the <a href="https://github.com/jonathanpeppers/lols">LOLs per second</a> performance test, on the desktop and Android.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">Todo for Android</a>: the todo example in a <code>SlintActivity</code>, sharing its logic with the desktop version.</li>
 </ul>
 <p>The carousel, speedometer, food processor, and analog clock have C# versions too, and the viewer shows the examples that have no logic, such as the layouts.</p>
 
