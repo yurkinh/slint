@@ -549,13 +549,58 @@ app.Run();</code></pre>
 <p>
   The package also runs on Android 8 (API level 26) and later, on <code>arm64-v8a</code> and <code>x86_64</code> devices and emulators.
   Slint draws into a <code>NativeActivity</code> and runs its event loop on a thread of its own, as in the C++ API.
-  Install the .NET Android workload with <code>dotnet workload install android</code>, then create a project with <code>dotnet new android</code>
-  and set in its project file:
 </p>
-<pre><code class="language-xml">&lt;SupportedOSPlatformVersion&gt;26&lt;/SupportedOSPlatformVersion&gt;
-&lt;RuntimeIdentifiers&gt;android-arm64;android-x64&lt;/RuntimeIdentifiers&gt;</code></pre>
-<p>Add the package and the <code>&lt;SlintFile&gt;</code> items as on the desktop, and derive the main activity from <code>SlintActivity</code>:</p>
-<pre><code class="language-csharp">using Slint.Android;
+<ol>
+  <li>
+    <p>Install the .NET Android workload, then create a project and add the package:</p>
+    <pre><code class="language-sh">dotnet workload install android
+dotnet new android -o MyApp
+cd MyApp
+dotnet add package yurkinh.slint.net --prerelease</code></pre>
+  </li>
+  <li>
+    <p>
+      In <code>MyApp.csproj</code>, change <code>SupportedOSPlatformVersion</code> to 26, add the runtime identifiers that Slint has libraries for,
+      and add your <code>.slint</code> file:
+    </p>
+    <pre><code class="language-xml">&lt;PropertyGroup&gt;
+  &lt;SupportedOSPlatformVersion&gt;26&lt;/SupportedOSPlatformVersion&gt;
+  &lt;RuntimeIdentifiers&gt;android-arm64;android-x64&lt;/RuntimeIdentifiers&gt;
+&lt;/PropertyGroup&gt;
+&lt;ItemGroup&gt;
+  &lt;SlintFile Include="ui/app-window.slint" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+    <p>The template already sets <code>SupportedOSPlatformVersion</code> to 24: change that line rather than adding a second one.</p>
+  </li>
+  <li>
+    <p>Create <code>ui/app-window.slint</code>, the same as in the <a href="#quick-start">Quick Start</a>:</p>
+    <pre><code class="language-plaintext">import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    in-out property &lt;int&gt; counter: 42;
+    callback request-increase-value();
+    VerticalBox {
+        Text {
+            text: "Counter: \{root.counter}";
+        }
+        Button {
+            text: "Increase value";
+            clicked =&gt; {
+                root.request-increase-value();
+            }
+        }
+    }
+}</code></pre>
+    <p>
+      Without a <code>&lt;SlintFile&gt;</code> item for it, the build generates no <code>AppWindow</code> class,
+      and fails with "The name 'AppWindow' does not exist".
+    </p>
+  </li>
+  <li>
+    <p>Replace <code>MainActivity.cs</code>: derive the main activity from <code>SlintActivity</code>, and create the components in <code>SlintMain</code>:</p>
+    <pre><code class="language-csharp">using Slint.Android;
+
+namespace MyApp;
 
 [Activity(MainLauncher = true, ConfigurationChanges = SlintActivity.ConfigurationChanges)]
 [MetaData(SlintActivity.LibraryNameKey, Value = SlintActivity.LibraryName)]
@@ -568,19 +613,44 @@ public class MainActivity : SlintActivity
         app.Run();
     }
 }</code></pre>
+    <p>
+      Both attributes are needed, since .NET Android only reads them from your own activity.
+      The template's <code>Resources/layout/activity_main.xml</code> is no longer used, and you can delete it.
+    </p>
+  </li>
+  <li>
+    <p>Connect a device with USB debugging, or start an emulator, and run the app:</p>
+    <pre><code class="language-sh">dotnet build -t:Run</code></pre>
+    <p>
+      To install the APK of a Debug build with <code>adb install</code> instead,
+      set <code>&lt;EmbedAssembliesIntoApk&gt;true&lt;/EmbedAssembliesIntoApk&gt;</code>, since a Debug build leaves the assemblies out of the APK otherwise.
+    </p>
+  </li>
+</ol>
 <ul>
-  <li>Both attributes are needed, since .NET Android only reads them from your own activity.</li>
   <li><code>SlintMain</code> and every callback run on Slint's thread, not on the Android UI thread.</li>
-  <li>An app has one <code>SlintActivity</code>, which ends the process when Android destroys it, such as after the Back button.
-    Keep what should survive in files or preferences.</li>
+  <li>An app has one <code>SlintActivity</code>, which ends the process when Android destroys it, such as after the Back button.</li>
   <li>The build puts the <code>.slint</code> files into the APK, and <code>SlintActivity</code> extracts them at startup.
     Add the images they use as <code>&lt;SlintFile Include="ui/images/logo.png" Generate="false" /&gt;</code>, under the project directory.</li>
-  <li>Run it with <code>dotnet run</code>, or install the APK with <code>adb install</code>.
-    A Debug build needs <code>&lt;EmbedAssembliesIntoApk&gt;true&lt;/EmbedAssembliesIntoApk&gt;</code> for <code>adb install</code>.</li>
 </ul>
+<h3>Keeping State</h3>
+<p><em>Coming in the next preview, after 1.19.0-preview.7.</em></p>
+<p>
+  Android also ends the process of an app in the background when it needs memory, and starts a new one when the user returns.
+  To keep what the user was doing, return it from <code>SlintSaveState</code>, and take it back in <code>SlintRestoreState</code>:
+</p>
+<pre><code class="language-csharp">protected override byte[]? SlintSaveState() =&gt; JsonSerializer.SerializeToUtf8Bytes(settings);
+
+protected override void SlintRestoreState(byte[] state) =&gt; Apply(JsonSerializer.Deserialize&lt;Settings&gt;(state));</code></pre>
+<p>
+  <code>SlintRestoreState</code> runs once, in the event loop, after <code>SlintMain</code> created the components.
+  <code>SlintPause</code>, <code>SlintResume</code>, and <code>SlintLowMemory</code> report the other activity events,
+  all on Slint's thread, unlike <code>OnPause</code> and the other methods of <code>Activity</code>.
+  Android drops the saved state when the user closes the app, so keep what must outlast that in files or preferences.
+</p>
 <p>
   See the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">todo example for Android</a>,
-  which shares its logic with the desktop version.
+  which shares its logic with the desktop version and keeps its list this way.
 </p>
 
 <h2 id="deployment">Deployment</h2>
