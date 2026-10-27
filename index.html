@@ -677,7 +677,9 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <div class="table-wrap"><table>
 <tr><th>Variable</th><th>Meaning</th></tr>
 <tr><td><code>SLINT_BACKEND</code></td><td>Selects the windowing backend, such as <code>winit</code>, or <code>linuxkms</code> on embedded Linux.</td></tr>
-<tr><td><code>SLINT_ENABLE_EXPERIMENTAL_FEATURES</code></td><td><code>1</code> enables experimental Slint language features, since the generated code compiles the <code>.slint</code> files at run time too.</td></tr>
+<tr><td><code>SLINT_ENABLE_EXPERIMENTAL_FEATURES</code></td><td>Enables experimental Slint language features, at build time and at run time, since the generated code compiles the <code>.slint</code> files again.
+  Up to 1.19.0-preview.7, <code>1</code> enables all of them.
+  From the next preview, list the features by name, separated by commas, such as <code>match,closures</code>; <code>1</code> is then an error.</td></tr>
 <tr><td><code>SLINT_DOTNET_NATIVE_LIBRARY</code></td><td>The path of the native library to load instead of the one in the package, such as a local build.</td></tr>
 </table></div>
 
