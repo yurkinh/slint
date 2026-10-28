@@ -93,6 +93,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#project-setup">Project Setup</a></li>
     <li><a href="#project-files">Project Files and Editions</a></li>
     <li><a href="#generated-code">Generated Code</a></li>
+    <li><a href="#generating-by-hand">Generating the Code by Hand</a></li>
     <li><a href="#properties-and-callbacks">Properties and Callbacks</a></li>
     <li><a href="#structs-and-enums">Structs and Enums</a></li>
     <li><a href="#globals">Globals</a></li>
@@ -107,6 +108,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#lifetime-and-errors">Lifetime and Errors</a></li>
     <li><a href="#android">Android</a></li>
     <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#building-from-source">Building From Source</a></li>
     <li><a href="#environment-variables">Environment Variables</a></li>
     <li><a href="#troubleshooting">Troubleshooting</a></li>
     <li><a href="#samples">Samples</a></li>
@@ -289,6 +291,40 @@ internal static class Program
   Numbers convert to integers with saturation and truncation, like in Slint.
   When you rebuild after changing a <code>.slint</code> file, the generated classes change with it;
   at run time, the generated code checks that the file still matches, and throws a <code>SlintException</code> if it doesn't.
+</p>
+
+<h3 id="generating-by-hand">Generating the Code by Hand</h3>
+<p>
+  The build runs <code>slint-compiler</code> for each <code>&lt;SlintFile&gt;</code>.
+  Run it yourself to generate the code in a script, or for a project that doesn't use the package's MSBuild targets:
+</p>
+<pre><code class="language-sh">slint-compiler -f csharp ui/app-window.slint -o AppWindow.g.cs \
+    --csharp-namespace MyApp \
+    --csharp-runtime-path ui/app-window.slint</code></pre>
+<ul>
+  <li><code>--csharp-namespace</code> sets the namespace of the generated classes.</li>
+  <li><code>--csharp-runtime-path</code> is where the generated code loads the <code>.slint</code> file at run time, relative to the application directory.
+    Copy the <code>.slint</code> files there, as the build does.</li>
+  <li>For a <a href="#project-files">project file</a>, pass its directory instead of a file, and the directory as the runtime path.</li>
+</ul>
+<p>The other settings map to options:</p>
+<div class="table-wrap"><table>
+<tr><th>Setting</th><th>Option</th></tr>
+<tr><td><code>SlintStyle</code></td><td><code>--style fluent</code></td></tr>
+<tr><td><code>SlintIncludePaths</code></td><td><code>-I &lt;dir&gt;</code>, once per directory</td></tr>
+<tr><td><code>&lt;SlintLibraryPath&gt;</code></td><td><code>-L mylib=../mylib/</code></td></tr>
+<tr><td><code>SlintTranslationDomain</code></td><td><code>--translation-domain &lt;domain&gt;</code></td></tr>
+<tr><td><code>SlintBundledTranslations</code></td><td><code>--bundle-translations &lt;dir&gt;</code></td></tr>
+<tr><td><code>SlintNoDefaultTranslationContext</code></td><td><code>--no-default-translation-context</code></td></tr>
+<tr><td><code>SlintLivePreview</code></td><td><code>--csharp-live-preview</code></td></tr>
+</table></div>
+<p>
+  The package <code>yurkinh.slint.net.Compiler</code> has the compiler in <code>tools/&lt;rid&gt;/</code>,
+  such as <code>~/.nuget/packages/yurkinh.slint.net.compiler/&lt;version&gt;/tools/osx-arm64/slint-compiler</code>.
+  NuGet doesn't keep its executable bit, so run <code>chmod +x</code> on it first.
+  Add the generated file to the project with <code>&lt;Compile Include="AppWindow.g.cs" /&gt;</code>,
+  and generate it again when the <code>.slint</code> file changes.
+  To build with a <code>slint-compiler</code> of your own instead, set <code>SlintCompilerPath</code> to it.
 </p>
 
 <h2 id="properties-and-callbacks">Properties and Callbacks</h2>
@@ -671,6 +707,49 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
     The build copies the <code>.slint</code> files to the output; ship the images too, at the same paths relative to them.</li>
   <li>On Windows, set <code>&lt;OutputType&gt;WinExe&lt;/OutputType&gt;</code> to start without a console window.</li>
   <li>On Linux, the windowing backend loads <code>libxkbcommon-x11</code> at run time, so install it on the target system.</li>
+</ul>
+
+<h2 id="building-from-source">Building From Source</h2>
+<p>
+  Build the native library, the compiler, and the packages yourself for a platform or a change that isn't published.
+  This needs <a href="https://rustup.rs">Rust</a> and a clone of the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings"><code>dotnet_bindings</code> branch</a>.
+  From the repository root, on an Apple Silicon Mac:
+</p>
+<pre><code class="language-sh"># The native library and the compiler for this machine
+cargo build --release -p slint-dotnet -p slint-compiler
+
+# The native library for Android devices, with the NDK's compilers
+cargo build --release -p slint-dotnet --target aarch64-linux-android
+
+# One directory per runtime identifier
+mkdir -p out/native/osx-arm64 out/native/android-arm64 out/compiler/osx-arm64
+cp target/release/libslint_dotnet.dylib out/native/osx-arm64/
+cp target/aarch64-linux-android/release/libslint_dotnet.so out/native/android-arm64/
+cp target/release/slint-compiler out/compiler/osx-arm64/
+
+cd api/dotnet
+dotnet pack Slint.Compiler -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
+    -p:SlintCompilerBinariesDir=$PWD/../../out/compiler
+dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
+    -p:SlintNativeRuntimesDir=$PWD/../../out/native -p:SlintAndroid=true</code></pre>
+<div class="table-wrap"><table>
+<tr><th>Platform</th><th>Native library</th><th>Compiler</th></tr>
+<tr><td>macOS</td><td><code>libslint_dotnet.dylib</code></td><td><code>slint-compiler</code></td></tr>
+<tr><td>Linux</td><td><code>libslint_dotnet.so</code></td><td><code>slint-compiler</code></td></tr>
+<tr><td>Windows</td><td><code>slint_dotnet.dll</code></td><td><code>slint-compiler.exe</code></td></tr>
+<tr><td>Android</td><td><code>libslint_dotnet.so</code>, from <code>target/&lt;triple&gt;/release</code></td><td>none</td></tr>
+</table></div>
+<ul>
+  <li>A local pack has the platforms whose binaries you built.
+    The publish workflow builds all eight runtime identifiers on GitHub's runners.</li>
+  <li>The Android build needs the NDK's compilers in environment variables,
+    as in <a href="https://github.com/yurkinh/slint/blob/dotnet_bindings/docs/development/dotnet-bindings.md#android">the developer guide</a>.
+    <code>-p:SlintAndroid=true</code> needs the .NET Android workload, from <code>dotnet workload install android</code>.
+    Leave both out for a desktop-only package.</li>
+  <li>These packages have the ID <code>Slint</code>.
+    For another ID, add <code>-p:SlintPackageId=&lt;id&gt; -p:SlintCommunityPackage=true</code> to both <code>dotnet pack</code> commands.</li>
+  <li>Use them from another project through a NuGet source, with <code>dotnet nuget add source $PWD/out/packages --name slint-local</code>.
+    NuGet caches a version once it installed it, so give each pack a new version.</li>
 </ul>
 
 <h2 id="environment-variables">Environment Variables</h2>
