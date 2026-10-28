@@ -116,7 +116,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <main>
 <h1>Slint for .NET</h1>
 <p class="subtitle">Community .NET bindings for the Slint UI toolkit, in preview.</p>
-<p class="version">yurkinh.slint.net 1.19.0-preview.7 · .NET 10</p>
+<p class="version">yurkinh.slint.net 1.19.0-preview.8 · .NET 10</p>
 
 <div class="notice">
   <strong>Community project.</strong>
@@ -634,7 +634,7 @@ public class MainActivity : SlintActivity
     Add the images they use as <code>&lt;SlintFile Include="ui/images/logo.png" Generate="false" /&gt;</code>, under the project directory.</li>
 </ul>
 <h3>Keeping State</h3>
-<p><em>Coming in the next preview, after 1.19.0-preview.7.</em></p>
+<p><em>From 1.19.0-preview.8.</em></p>
 <p>
   Android also ends the process of an app in the background when it needs memory, and starts a new one when the user returns.
   To keep what the user was doing, return it from <code>SlintSaveState</code>, and take it back in <code>SlintRestoreState</code>:
@@ -679,7 +679,7 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <tr><td><code>SLINT_BACKEND</code></td><td>Selects the windowing backend, such as <code>winit</code>, or <code>linuxkms</code> on embedded Linux.</td></tr>
 <tr><td><code>SLINT_ENABLE_EXPERIMENTAL_FEATURES</code></td><td>Enables experimental Slint language features, at build time and at run time, since the generated code compiles the <code>.slint</code> files again.
   Up to 1.19.0-preview.7, <code>1</code> enables all of them.
-  From the next preview, list the features by name, separated by commas, such as <code>match,closures</code>; <code>1</code> is then an error.</td></tr>
+  From 1.19.0-preview.8, list the features by name, separated by commas, such as <code>match,closures</code>; <code>1</code> is then an error.</td></tr>
 <tr><td><code>SLINT_DOTNET_NATIVE_LIBRARY</code></td><td>The path of the native library to load instead of the one in the package, such as a local build.</td></tr>
 </table></div>
 
