@@ -66,6 +66,10 @@ pre code { font-size: 14px; }
 .hljs-title, .hljs-type, .hljs-class .hljs-title, .hljs-attr { color: var(--code-type); }
 .hljs-number { color: var(--code-number); }
 .table-wrap { overflow-x: auto; margin: 16px 0; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; align-items: start; }
+.shots figure { margin: 0; }
+.shots img { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 6px; }
+.shots figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
 table { border-collapse: collapse; font-size: 15px; }
 th, td { border-bottom: 1px solid var(--border); padding: 8px 14px 8px 0; text-align: left; vertical-align: top; }
 th { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -100,6 +104,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#models">Models</a></li>
     <li><a href="#images">Images</a></li>
     <li><a href="#window">Window</a></li>
+    <li><a href="#opengl">Drawing With OpenGL</a></li>
     <li><a href="#timers-and-async">Timers and Async Code</a></li>
     <li><a href="#threading">Threading</a></li>
     <li><a href="#hot-reload">Hot Reload</a></li>
@@ -453,6 +458,47 @@ app.Window.OnCloseRequested(() =&gt;
   its class has <code>Show</code> and <code>Hide</code>, which show and hide the icon, but no <code>Window</code> or <code>Run</code>.
 </p>
 
+<h3 id="opengl">Drawing With OpenGL</h3>
+<p><em>Coming in the next preview, after 1.19.0-preview.8.</em></p>
+<p>
+  Draw with OpenGL below or on top of the scene, or into a texture that an <code>Image</code> shows.
+  Require a renderer that uses OpenGL before any other use of Slint, then set a rendering notifier on the window:
+</p>
+<pre><code class="language-csharp">new BackendSelector().RequireOpenGL().Select();
+using var app = AppWindow.Create();
+app.Window.SetRenderingNotifier((state, api) =&gt;
+{
+    switch (state)
+    {
+        case RenderingState.RenderingSetup:
+            // Load the OpenGL functions, such as with api.GetProcAddress("glDrawArrays"), and create resources.
+            break;
+        case RenderingState.BeforeRendering:
+            // Draw below the scene, or into a texture:
+            // app.Texture = Image.FromBorrowedOpenGLTexture(texture, width, height);
+            break;
+        case RenderingState.RenderingTeardown:
+            // Release the resources.
+            break;
+    }
+});
+app.Run();</code></pre>
+<ul>
+  <li>The notifier runs on the Slint thread with the window's OpenGL context current,
+    so restore the state that it changes, such as the bound program and buffers.</li>
+  <li><code>GraphicsApi</code> is valid during the call only, while the function addresses stay valid with the context,
+    so load the functions once, in <code>RenderingSetup</code>.</li>
+  <li>Call <code>app.Window.RequestRedraw()</code> in <code>BeforeRendering</code> for a continuous animation.</li>
+  <li><code>SetRenderingNotifier</code> throws <code>NotSupportedException</code> when the renderer doesn't use OpenGL.
+    WGPU and Metal give C# no access to Slint's device, so drawing with them isn't available.</li>
+</ul>
+<div class="shots">
+  <figure><img src="images/opengl-underlay.jpg" alt="The OpenGL underlay example: an animated grid of diamonds that a shader draws below Slint's text and checkbox" width="960" height="540" loading="lazy">
+    <figcaption><code>opengl_underlay</code>: a shader draws below the scene.</figcaption></figure>
+  <figure><img src="images/opengl-texture.png" alt="The OpenGL texture example: a lit blue cube in a Slint Image, above sliders for its color" width="500" height="600" loading="lazy">
+    <figcaption><code>opengl_texture</code>: a cube rendered into a texture that an <code>Image</code> shows.</figcaption></figure>
+</div>
+
 <h2 id="timers-and-async">Timers and Async Code</h2>
 <p>Use <code>Slint.Timer</code> to run code after a delay, or repeatedly:</p>
 <pre><code class="language-csharp">using var timer = new Slint.Timer();
@@ -803,6 +849,9 @@ dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/dotnet-viewer">Viewer</a>: shows any .slint file with the Compiler API, optionally with live reload.</li>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/lols">LOLs per second</a>: a port of the <a href="https://github.com/jonathanpeppers/lols">LOLs per second</a> performance test, on the desktop and Android.
     Compare it with Java, .NET for Android, MAUI, and Flutter on your own phone with the <a href="https://github.com/yurkinh/lols/tree/slint#comparing-on-your-own-phone">comparison script</a>.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_underlay/dotnet">OpenGL underlay</a> and
+    <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_texture/dotnet">OpenGL texture</a>:
+    drawing with OpenGL below the scene and into a texture, see <a href="#opengl">Drawing With OpenGL</a>.</li>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">Todo for Android</a>: the todo example in a <code>SlintActivity</code>, sharing its logic with the desktop version.</li>
 </ul>
 <p>The carousel, speedometer, food processor, and analog clock have C# versions too, and the viewer shows the examples that have no logic, such as the layouts.</p>
