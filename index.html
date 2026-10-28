@@ -152,7 +152,23 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 </p>
 
 <h2 id="quick-start">Quick Start</h2>
-<p>Install the <a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a>, then:</p>
+<p>Install the <a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a>.</p>
+<h3 id="templates">With the Template</h3>
+<p><em>Coming in the next preview, after 1.19.0-preview.9.</em></p>
+<pre><code class="language-sh">dotnet new install yurkinh.slint.net.Templates
+dotnet new slint -o MyApp
+cd MyApp
+dotnet run</code></pre>
+<p>The template creates a ready app:</p>
+<ul>
+  <li><code>MyApp.csproj</code>, <code>Program.cs</code>, and <code>ui/app-window.slint</code> with the counter below, and a <code>.gitignore</code>.</li>
+  <li>Debug builds turn on <a href="#hot-reload">live preview</a>, so <code>dotnet watch</code> reloads changes to the UI and the C# code.</li>
+  <li>Release builds turn on Native AOT: <code>dotnet publish -c Release -r osx-arm64</code> builds a native executable.</li>
+  <li><code>--style fluent</code>, <code>material</code>, <code>cupertino</code>, or <code>cosmic</code> picks the widget style,
+    and <code>--slint-version</code> the version of the package.</li>
+</ul>
+<p>Templates for Android, iOS, and all three platforms in one solution follow.</p>
+<h3>By Hand</h3>
 <ol>
 <li>
 <p>Create a project and add the package:</p>
