@@ -113,6 +113,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#lifetime-and-errors">Lifetime and Errors</a></li>
     <li><a href="#android">Android</a></li>
     <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#embedded-linux">Embedded Linux</a></li>
     <li><a href="#building-from-source">Building From Source</a></li>
     <li><a href="#environment-variables">Environment Variables</a></li>
     <li><a href="#troubleshooting">Troubleshooting</a></li>
@@ -755,6 +756,40 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
   <li>On Linux, the windowing backend loads <code>libxkbcommon-x11</code> at run time, so install it on the target system.</li>
 </ul>
 
+<h3 id="embedded-linux">Embedded Linux</h3>
+<p>
+  On a device without a desktop, such as a board with a touchscreen,
+  Slint draws straight to the display with its <code>linuxkms</code> backend, and reads input with libinput.
+  Publish for the device's runtime identifier, and start the app on its console:
+</p>
+<pre><code class="language-sh">dotnet publish -c Release -r linux-arm64 --self-contained
+SLINT_BACKEND=linuxkms ./MyApp</code></pre>
+<ul>
+  <li>Give the app access to <code>/dev/dri</code> and <code>/dev/input</code>:
+    run it as root, or add its user to the <code>video</code> and <code>input</code> groups.</li>
+  <li>Stop the desktop first, if the device has one, since it holds the display.</li>
+  <li><code>linuxkms</code> picks a renderer; <code>linuxkms-software</code>, <code>linuxkms-femtovg</code>,
+    and <code>linuxkms-skia-opengl</code> choose one.</li>
+  <li>The device needs libinput and libudev, and for OpenGL, GBM and EGL, which the app loads at run time.</li>
+  <li>In 1.19.0-preview.9 and earlier, the OpenGL renderers fail with "Error adding gbm buffer as framebuffer"
+    on display drivers without modifier support, such as <code>virtio-gpu</code> in virtual machines.
+    Use <code>linuxkms-software</code> there, or the next preview.</li>
+</ul>
+<p>
+  We tested it on an arm64 Kali Linux virtual machine in UTM on a Mac, with the samples published from the package:
+  every sample runs with the software renderer, typing and clicking work through libinput,
+  and with the fix of the next preview, the OpenGL renderers and the OpenGL samples render too.
+  See <a href="https://docs.slint.dev/latest/docs/slint/guide/backends-and-renderers/backend_linuxkms/">Slint's LinuxKMS guide</a> for the renderers and display settings.
+</p>
+<div class="shots">
+  <figure><img src="images/linux-printerdemo.jpg" alt="The printer demo on the Linux console, drawn by the linuxkms backend with the software renderer" width="960" height="576" loading="lazy">
+    <figcaption>The printer demo, with the software renderer.</figcaption></figure>
+  <figure><img src="images/linux-todo.jpg" alt="The todo example on the Linux console, with an entry typed through libinput" width="960" height="576" loading="lazy">
+    <figcaption>The todo example, after typing an entry through libinput.</figcaption></figure>
+  <figure><img src="images/linux-opengl-underlay.jpg" alt="The OpenGL underlay example on the Linux console, rendered with Skia's OpenGL renderer" width="960" height="576" loading="lazy">
+    <figcaption>The OpenGL underlay, with Skia's OpenGL renderer.</figcaption></figure>
+</div>
+
 <h2 id="building-from-source">Building From Source</h2>
 <p>
   Build the native library, the compiler, and the packages yourself for a platform or a change that isn't published.
@@ -817,6 +852,9 @@ dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
 <p>The <code>.slint</code> file next to the application doesn't match the generated code. Rebuild, and ship the <code>.slint</code> files from the same build.</p>
 <h3>An Android app closes right after it starts</h3>
 <p>Run <code>adb logcat -s Slint</code>: <code>SlintActivity</code> logs an exception of <code>SlintMain</code> under that tag before the activity ends.</p>
+<h3>"Error adding gbm buffer as framebuffer" on embedded Linux</h3>
+<p>The display driver doesn't take buffer modifiers, such as <code>virtio-gpu</code> in a virtual machine.
+  Run with <code>SLINT_BACKEND=linuxkms-software</code>, or update to the next preview, see <a href="#embedded-linux">Embedded Linux</a>.</p>
 <h3>The window doesn't open on Linux</h3>
 <p>Install <code>libxkbcommon-x11</code>, and check that <code>DISPLAY</code> or <code>WAYLAND_DISPLAY</code> is set.</p>
 
