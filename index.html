@@ -103,6 +103,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#globals">Globals</a></li>
     <li><a href="#models">Models</a></li>
     <li><a href="#images">Images</a></li>
+    <li><a href="#charts">Charts</a></li>
     <li><a href="#window">Window</a></li>
     <li><a href="#opengl">Drawing With OpenGL</a></li>
     <li><a href="#timers-and-async">Timers and Async Code</a></li>
@@ -469,6 +470,35 @@ app.Preview = Image.FromRgba8(original.Width, original.Height, pixels);</code></
   as SkiaSharp draws them, such as an <code>SKBitmap</code>'s <code>GetPixelSpan()</code>.
   <code>FromRgba8</code> would show them too dark wherever they're semi-transparent.
 </p>
+
+<h2 id="charts">Charts With Microcharts</h2>
+<p><em>Needs the next preview, after 1.19.0-preview.9.</em></p>
+<p>
+  <a href="https://github.com/microcharts-dotnet/Microcharts">Microcharts</a> draws bar, line, point, donut, pie, radar, and gauge charts with SkiaSharp,
+  for MAUI and the native iOS and Android views.
+  <code>Microcharts.Slint</code>, in the <a href="https://github.com/yurkinh/Microcharts/tree/slint"><code>slint</code> branch of the fork</a> until Microcharts takes it in,
+  shows them in a Slint <code>Image</code>: a <code>ChartRenderer</code> draws the chart at the element's size in physical pixels,
+  and hands the pixels to <code>Image.FromPremultipliedRgba8</code>.
+</p>
+<pre><code class="language-csharp">SlintTimer.Install(); // before creating charts, so that they animate on the Slint thread
+using var app = AppWindow.Create();
+var renderer = new ChartRenderer(app.Window, image =&gt; app.SalesChart = image)
+{
+    Chart = new BarChart { Entries = entries },
+};
+app.OnSalesChartResized(renderer.Resize);
+app.Run();</code></pre>
+<p>
+  The <code>.slint</code> side is a <code>ChartView</code>, an <code>Image</code> that reports its size, from <code>chart-view.slint</code>.
+  The chart's sizes, such as <code>LabelTextSize</code>, are in logical pixels, like Slint's lengths.
+  The <a href="https://github.com/yurkinh/Microcharts/tree/slint/Sources/Microcharts.Samples.Slint">gallery sample</a> runs on the desktop, Android, and iOS:
+</p>
+<div class="shots">
+  <figure><img src="images/microcharts-android.jpg" alt="Microcharts on Slint on Android: a bar chart, a point chart, and a line chart in white cards" width="540" height="1212" loading="lazy">
+    <figcaption>Android, on a Pixel 9 emulator.</figcaption></figure>
+  <figure><img src="images/microcharts-ios.jpg" alt="Microcharts on Slint on iOS: the same gallery in the iPhone simulator" width="540" height="1174" loading="lazy">
+    <figcaption>iOS, in the iPhone simulator.</figcaption></figure>
+</div>
 
 <h2 id="window">Window</h2>
 <p>Each component has a <code>Window</code>, for the window it shows in:</p>
@@ -932,6 +962,7 @@ dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_underlay/dotnet">OpenGL underlay</a> and
     <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_texture/dotnet">OpenGL texture</a>:
     drawing with OpenGL below the scene and into a texture, see <a href="#opengl">Drawing With OpenGL</a>.</li>
+  <li><a href="https://github.com/yurkinh/Microcharts/tree/slint/Sources/Microcharts.Samples.Slint">Microcharts gallery</a>: charts drawn with SkiaSharp into Slint images, on the desktop, Android, and iOS, see <a href="#charts">Charts</a>.</li>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">Todo for Android</a>: the todo example in a <code>SlintActivity</code>, sharing its logic with the desktop version.</li>
 </ul>
 <p>The carousel, speedometer, food processor, and analog clock have C# versions too, and the viewer shows the examples that have no logic, such as the layouts.</p>
