@@ -464,6 +464,11 @@ app.OnDeleteClicked(() =&gt; names.RemoveAt(shown.SourceRow(app.CurrentItem)));<
 var pixels = original.ToRgba8();
 Invert(pixels);
 app.Preview = Image.FromRgba8(original.Width, original.Height, pixels);</code></pre>
+<p>
+  From the next preview, after 1.19.0-preview.9, <code>Image.FromPremultipliedRgba8</code> takes pixels whose colors are already multiplied by their alpha,
+  as SkiaSharp draws them, such as an <code>SKBitmap</code>'s <code>GetPixelSpan()</code>.
+  <code>FromRgba8</code> would show them too dark wherever they're semi-transparent.
+</p>
 
 <h2 id="window">Window</h2>
 <p>Each component has a <code>Window</code>, for the window it shows in:</p>
