@@ -113,6 +113,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#runtime-compilation">Without Generated Code</a></li>
     <li><a href="#lifetime-and-errors">Lifetime and Errors</a></li>
     <li><a href="#android">Android</a></li>
+    <li><a href="#ios">iOS</a></li>
     <li><a href="#deployment">Deployment</a></li>
     <li><a href="#embedded-linux">Embedded Linux</a></li>
     <li><a href="#building-from-source">Building From Source</a></li>
@@ -143,7 +144,8 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <ul>
   <li>The build generates typed C# classes from your <code>.slint</code> files, so properties and callbacks are checked by the compiler.</li>
   <li>Change the UI and the C# code of a running application with hot reload.</li>
-  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64, and for <a href="#android">Android</a>.</li>
+  <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64, for <a href="#android">Android</a>,
+    and from the next preview for <a href="#ios">iOS</a>.</li>
   <li>The library is compatible with trimming and Native AOT.</li>
 </ul>
 <p>
@@ -807,6 +809,87 @@ protected override void SlintRestoreState(byte[] state) =&gt; Apply(JsonSerializ
   See the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">todo example for Android</a>,
   which shares its logic with the desktop version and keeps its list this way.
 </p>
+
+<h2 id="ios">iOS</h2>
+<p><em>From the next preview, after 1.19.0-preview.9.</em></p>
+<p>
+  The package also runs on iOS 15 and later, with Skia on Metal, on devices and in the simulator; it's tested on an iPhone 13.
+  As on Android, Slint owns the app's entry point: there's no <code>AppDelegate</code> and no <code>UIApplication.Main</code>.
+  <code>dotnet new slint-ios -o MyApp --app-id com.example.myapp</code> creates the app, see <a href="#templates">With a Template</a>.
+  To set up the project yourself:
+</p>
+<ol>
+  <li>
+    <p>Install the .NET iOS workload, with <code>dotnet workload install ios</code>, and create a project for <code>net10.0-ios</code> with your <code>.slint</code> file:</p>
+    <pre><code class="language-xml">&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0-ios&lt;/TargetFramework&gt;
+    &lt;SupportedOSPlatformVersion&gt;15.0&lt;/SupportedOSPlatformVersion&gt;
+    &lt;OutputType&gt;Exe&lt;/OutputType&gt;
+    &lt;ApplicationId&gt;com.example.myapp&lt;/ApplicationId&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;SlintFile Include="ui/app-window.slint" /&gt;
+  &lt;/ItemGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include="yurkinh.slint.net" Version="1.19.0-preview.10" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</code></pre>
+  </li>
+  <li>
+    <p>Add an <code>Info.plist</code> that names Slint's scene delegate, which iOS 27 requires,
+      like the one of <a href="https://github.com/yurkinh/slint/blob/dotnet_bindings/examples/todo/dotnet-ios/Info.plist">the todo example</a>:</p>
+    <pre><code class="language-xml">&lt;key&gt;UIApplicationSceneManifest&lt;/key&gt;
+&lt;dict&gt;
+  &lt;key&gt;UIApplicationSupportsMultipleScenes&lt;/key&gt;
+  &lt;false/&gt;
+  &lt;key&gt;UISceneConfigurations&lt;/key&gt;
+  &lt;dict&gt;
+    &lt;key&gt;UIWindowSceneSessionRoleApplication&lt;/key&gt;
+    &lt;array&gt;
+      &lt;dict&gt;
+        &lt;key&gt;UISceneConfigurationName&lt;/key&gt;
+        &lt;string&gt;Slint&lt;/string&gt;
+        &lt;key&gt;UISceneDelegateClassName&lt;/key&gt;
+        &lt;string&gt;SlintWindowSceneDelegate&lt;/string&gt;
+      &lt;/dict&gt;
+    &lt;/array&gt;
+  &lt;/dict&gt;
+&lt;/dict&gt;</code></pre>
+  </li>
+  <li>
+    <p>Create the components in <code>Main</code>, and call <code>Run</code>, where Slint starts the app and doesn't return:</p>
+    <pre><code class="language-csharp">internal static class Program
+{
+    private static void Main()
+    {
+        using var app = AppWindow.Create();
+        app.OnRequestIncreaseValue(() =&gt; app.Counter++);
+        app.Run();
+    }
+}</code></pre>
+  </li>
+  <li>
+    <p>Build and start it in the simulator, or with <code>-r ios-arm64</code> and a signing identity on a device:</p>
+    <pre><code class="language-sh">dotnet build -t:Run</code></pre>
+  </li>
+</ol>
+<ul>
+  <li>The build embeds Slint's framework into the app, and puts the <code>.slint</code> files into the app bundle.</li>
+  <li><code>SlintLivePreview</code> isn't available on iOS yet; the build ignores it, with the warning <code>SLINT002</code>.</li>
+  <li>
+    iOS ends apps in the background without notice. Keep what the user was doing when the app leaves the screen,
+    with the UIKit notifications of .NET for iOS, which arrive on the Slint thread:
+    <pre><code class="language-csharp">var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "state.json");
+using var observer = UIKit.UIApplication.Notifications.ObserveDidEnterBackground((_, _) =&gt; File.WriteAllBytes(file, SaveState(app)));</code></pre>
+    Read the file back after <code>Create</code>, as <a href="https://github.com/yurkinh/slint/blob/dotnet_bindings/examples/todo/dotnet-ios/Program.cs">the todo example</a> does.
+  </li>
+  <li>
+    Native AOT works on devices: set <code>&lt;PublishAot&gt;true&lt;/PublishAot&gt;</code> in the project file, not with <code>-p:</code>,
+    which would also apply it to the Slint libraries, and run <code>dotnet publish -c Release -r ios-arm64</code>.
+    Builds for the simulator keep using Mono.
+  </li>
+</ul>
 
 <h2 id="deployment">Deployment</h2>
 <p>Publish the application for a runtime identifier, which picks the native library of that platform:</p>
