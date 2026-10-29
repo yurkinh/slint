@@ -255,14 +255,16 @@ app.OpenTodos = todos.Filter(t =&gt; !t.Done).Sort((a, b) =&gt; a.Title.CompareT
   Rebuild when you're ready, and the compiler shows you what to update.
 </p>
 
-<h2>Six Platforms, One Package</h2>
-<p>The package ships the native library for every common desktop target:</p>
+<h2>Every Platform, One Package</h2>
+<p>The package ships the native library for every common desktop target, and for phones:</p>
 <div class="table-wrap">
 <table>
 <tr><th>Platform</th><th>Runtime identifiers</th></tr>
 <tr><td>macOS</td><td><code>osx-arm64</code>, <code>osx-x64</code></td></tr>
 <tr><td>Linux</td><td><code>linux-x64</code>, <code>linux-arm64</code></td></tr>
 <tr><td>Windows</td><td><code>win-x64</code>, <code>win-arm64</code></td></tr>
+<tr><td>Android</td><td><code>android-arm64</code>, <code>android-x64</code></td></tr>
+<tr><td>iOS</td><td><code>ios-arm64</code>, <code>iossimulator-arm64</code>, as a framework</td></tr>
 </table>
 </div>
 <p>Publishing works the usual way, including Native AOT:</p>
@@ -598,7 +600,9 @@ sudo SLINT_BACKEND=linuxkms ./MyApp</code></pre>
 
 <h2>Try It</h2>
 <ul>
-  <li>Install <a href="https://www.nuget.org/packages/yurkinh.slint.net"><code>yurkinh.slint.net</code></a> from nuget.org.</li>
+  <li>Install <a href="https://www.nuget.org/packages/yurkinh.slint.net"><code>yurkinh.slint.net</code></a> from nuget.org,
+    or start from a template: <code>dotnet new install yurkinh.slint.net.Templates</code>,
+    then <code>dotnet new slint</code>, <code>slint-android</code>, <code>slint-ios</code>, or <code>slint-xplat</code> for all three.</li>
   <li>Read the <a href="https://yurkinh.github.io/slint/">Slint for .NET documentation</a>, and the <a href="https://docs.slint.dev">Slint language documentation</a> for the <code>.slint</code> side.</li>
   <li>Run one of the <a href="https://yurkinh.github.io/slint/#samples">C# samples</a>, such as the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet">todo app</a> or the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/demos/weather-demo/dotnet">weather demo</a>.</li>
   <li>Report problems and ideas on <a href="https://github.com/yurkinh/slint/issues">GitHub</a>.</li>
