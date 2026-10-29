@@ -153,7 +153,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 
 <h2 id="quick-start">Quick Start</h2>
 <p>Install the <a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a>.</p>
-<h3 id="templates">With the Template</h3>
+<h3 id="templates">With a Template</h3>
 <p><em>Coming in the next preview, after 1.19.0-preview.9.</em></p>
 <pre><code class="language-sh">dotnet new install yurkinh.slint.net.Templates
 dotnet new slint -o MyApp
@@ -167,7 +167,22 @@ dotnet run</code></pre>
   <li><code>--style fluent</code>, <code>material</code>, <code>cupertino</code>, or <code>cosmic</code> picks the widget style,
     and <code>--slint-version</code> the version of the package.</li>
 </ul>
-<p>Templates for Android, iOS, and all three platforms in one solution follow.</p>
+<p>The package has four templates:</p>
+<div class="table-wrap"><table>
+<tr><th>Template</th><th>Creates</th></tr>
+<tr><td><code>slint</code></td><td>A desktop app for macOS, Linux, and Windows.</td></tr>
+<tr><td><code>slint-android</code></td><td>An <a href="#android">Android</a> app; needs the .NET Android workload.</td></tr>
+<tr><td><code>slint-ios</code></td><td>An iOS app; needs the .NET iOS workload and a Mac.</td></tr>
+<tr><td><code>slint-xplat</code></td><td>A solution with a desktop, an Android, and an iOS project that share the UI and the logic.</td></tr>
+</table></div>
+<p>
+  <code>--app-id com.example.myapp</code> sets the Android package name and the iOS bundle ID.
+  <code>slint-xplat</code> puts the UI in <code>ui/</code>, the C# that the platforms share in <code>Shared/</code>,
+  and the settings that they share in <code>Directory.Build.props</code>.
+  Each project generates its own classes from the <code>.slint</code> files.
+  Without the Android or iOS workload, pick the projects with <code>--platforms</code>:
+</p>
+<pre><code class="language-sh">dotnet new slint-xplat -o MyApp --platforms desktop --platforms android</code></pre>
 <h3>By Hand</h3>
 <ol>
 <li>
@@ -648,6 +663,12 @@ app.Run();</code></pre>
 <p>
   The package also runs on Android 8 (API level 26) and later, on <code>arm64-v8a</code> and <code>x86_64</code> devices and emulators.
   Slint draws into a <code>NativeActivity</code> and runs its event loop on a thread of its own, as in the C++ API.
+</p>
+<p>
+  From the next preview, after 1.19.0-preview.9, <code>dotnet new slint-android -o MyApp</code> creates the app in one step,
+  see <a href="#templates">With a Template</a>.
+  Then <code>dotnet build -t:Run</code> installs it on the running emulator or the connected device.
+  To set up the project yourself:
 </p>
 <ol>
   <li>
