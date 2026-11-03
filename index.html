@@ -941,6 +941,9 @@ await app.RunAsync();</code></pre>
     which any static web server can host.</li>
 </ol>
 <ul>
+  <li><code>dotnet watch</code> applies C# changes while the page runs, and keeps the page's state.
+    A <code>.slint</code> change needs a restart: press Ctrl+R in <code>dotnet watch</code>, which rebuilds the assembly with the new file.
+    Reloading the page isn't enough, and <code>SlintLivePreview</code> doesn't apply to web projects.</li>
   <li>The build embeds the <code>.slint</code> files, the images they use, and the bundled translations in the assembly,
     and the library writes them into the browser's file system before the first component loads.</li>
   <li>Text input works with phones' keyboards and input methods, through a hidden <code>&lt;input&gt;</code> at the text cursor.
@@ -954,7 +957,6 @@ await app.RunAsync();</code></pre>
   <li>Slint draws text with the Inter font, which it embeds; it can't use the browser's fonts, so scripts that Inter lacks, such as Japanese, show no glyphs.</li>
   <li><code>dotnet.native.wasm</code> is about 33 MB, or 7 MB with Brotli, which web servers usually serve compressed.</li>
   <li>A path with a space in it doesn't work for the <code>.slint</code> files and images.</li>
-  <li>No live preview in the browser.</li>
 </ul>
 
 <h2 id="deployment">Deployment</h2>
