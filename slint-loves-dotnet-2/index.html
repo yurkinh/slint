@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Slint for .NET in the browser: the same C# and .slint files on .NET's WebAssembly runtime, plus DrawnUI controls in Slint windows.">
+<title>Slint Loves .NET, Part 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: one long-form reading column; the code samples and the two-row pipeline figure step out wider than the text. */
+:root {
+  --bg: #fcfcfe; --surface: #f0f1f8; --fg: #1c1d2a; --muted: #5e6178; --border: #d8dae6;
+  --accent: #4a3bb8; --accent-soft: #e9e6fb;
+  --code-keyword: #8b2fa8; --code-string: #1f7a4d; --code-comment: #6e7287; --code-type: #9a5b00; --code-number: #2156b8;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121219; --surface: #1c1d28; --fg: #e7e7f0; --muted: #a3a6ba; --border: #30334a;
+    --accent: #ab9eff; --accent-soft: #24203f;
+    --code-keyword: #d79bf0; --code-string: #7fd3a4; --code-comment: #8b8fa6; --code-type: #f0b866; --code-number: #8fb8ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121219; --surface: #1c1d28; --fg: #e7e7f0; --muted: #a3a6ba; --border: #30334a;
+  --accent: #ab9eff; --accent-soft: #24203f;
+  --code-keyword: #d79bf0; --code-string: #7fd3a4; --code-comment: #8b8fa6; --code-type: #f0b866; --code-number: #8fb8ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 19px/1.7 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+article { max-width: 720px; margin: 0 auto; padding-block: 48px 96px; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.draft {
+  display: inline-block; font: 600 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft); padding: 6px 10px; border-radius: 4px; margin-bottom: 20px;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.1; }
+h1 { font-size: clamp(44px, 9vw, 76px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 20px; }
+h1 .heart { color: var(--accent); }
+.lede { font-size: 23px; line-height: 1.5; color: var(--muted); margin: 0 0 24px; }
+.byline { font: 14px/1.5 var(--font-mono); color: var(--muted); margin: 0 0 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+h2 { font-size: 32px; font-weight: 600; margin: 64px 0 16px; letter-spacing: -0.01em; }
+h3 { font-size: 22px; font-weight: 600; margin: 32px 0 8px; }
+p, li { max-width: 66ch; }
+ul, ol { padding-left: 1.3em; }
+li + li { margin-top: 6px; }
+code { font-family: var(--font-mono); font-size: 0.82em; }
+:not(pre) > code { background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+pre {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px 18px; overflow-x: auto; line-height: 1.55; margin: 20px -18px;
+}
+pre code { font-size: 14.5px; }
+.file { font: 500 12px/1 var(--font-mono); color: var(--muted); margin: 28px 0 -12px; letter-spacing: 0.02em; }
+.hljs-keyword, .hljs-built_in, .hljs-literal, .hljs-tag .hljs-name, .hljs-meta { color: var(--code-keyword); }
+.hljs-string, .hljs-attribute { color: var(--code-string); }
+.hljs-comment { color: var(--code-comment); font-style: italic; }
+.hljs-title, .hljs-type, .hljs-attr { color: var(--code-type); }
+.hljs-number { color: var(--code-number); }
+.pipeline { margin: 28px -18px; display: grid; gap: 14px; font: 15px/1.4 var(--font-mono); }
+.pipeline .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pipeline .when { flex-basis: 100%; font: 600 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.pipeline .box { border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 10px 14px; }
+.pipeline .box.hl { border-color: var(--accent); background: var(--accent-soft); }
+.pipeline .arrow { color: var(--muted); }
+.pipeline small { display: block; color: var(--muted); font-size: 12px; }
+blockquote { margin: 24px 0; padding: 4px 0 4px 20px; border-left: 3px solid var(--accent); color: var(--muted); font-style: italic; }
+.table-wrap { overflow-x: auto; margin: 20px 0; }
+table { border-collapse: collapse; font-size: 16px; font-variant-numeric: tabular-nums; }
+th, td { border-bottom: 1px solid var(--border); padding: 8px 18px 8px 0; text-align: left; vertical-align: top; }
+th { font: 600 12px/1.4 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.note { font-size: 16px; color: var(--muted); border-top: 1px solid var(--border); margin-top: 64px; padding-top: 20px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin: 20px 0; }
+.shots.wide { grid-template-columns: 1fr; }
+.shots figure { margin: 0; }
+.shots img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; display: block; }
+.shots figcaption { font: 13px/1.4 var(--font-mono); color: var(--muted); margin-top: 6px; }
+.note-ai { font-size: 14px; font-style: italic; color: var(--muted); margin: -8px 0 20px; }
+@media (max-width: 760px) {
+  body { font-size: 18px; }
+  pre, .pipeline { margin-left: 0; margin-right: 0; }
+  .lede { font-size: 20px; }
+  h2 { font-size: 27px; }
+}
+</style>
+</head>
+<body>
+<article>
+<h1>Slint <span class="heart">♥</span> .NET, Part 2</h1>
+<p class="note-ai">
+  <strong>Disclaimer:</strong> short on time, I wrote this article with heavy help from AI.
+  I reviewed it, and the code and claims are checked against the bindings.
+</p>
+<p class="lede">
+  Slint for .NET now runs in the browser.
+  The same <code>.slint</code> files, the same generated C# classes, and the same logic,
+  on .NET's WebAssembly runtime, drawn into a canvas.
+</p>
+<p class="byline">Yuriy Holembyovskyy · November 2026 · 1.19.0-preview.11</p>
+
+<p>
+  In <a href="../slint-loves-dotnet/">Part 1</a>, I introduced the community .NET bindings for <a href="https://slint.dev">Slint</a>:
+  typed C# classes generated from <code>.slint</code> files, hot reload of the UI and the code,
+  and apps for the desktop, Android, iOS, and embedded Linux, up to preview.10.
+  This part covers only what's new since then: the browser, a host for DrawnUI's controls, and a few smaller changes.
+</p>
+
+<h2>Hello, Browser</h2>
+<p>A new template creates a web app:</p>
+<pre><code class="language-sh">dotnet workload install wasm-tools
+dotnet new install yurkinh.slint.net.Templates
+dotnet new slint-web -o MyWebApp
+cd MyWebApp
+dotnet run</code></pre>
+<p>
+  <code>dotnet run</code> serves the app and prints its address.
+  Open it, and you get the counter from Part 1, with the same <code>.slint</code> file and the same generated <code>AppWindow</code> class.
+  The only difference in C# is the last line:
+</p>
+<p class="file">Program.cs</p>
+<pre><code class="language-csharp">internal static class Program
+{
+    private static async Task Main()
+    {
+        using var app = AppWindow.Create();
+        app.OnRequestIncreaseValue(() =&gt; app.Counter++);
+        await app.RunAsync();
+    }
+}</code></pre>
+<p>The page needs a canvas and two lines to start .NET:</p>
+<p class="file">wwwroot/index.html</p>
+<pre><code class="language-xml">&lt;canvas id="canvas"&gt;&lt;/canvas&gt;
+&lt;script type="module"&gt;
+  import { dotnet } from "./_framework/dotnet.js";
+  await dotnet.run();
+&lt;/script&gt;</code></pre>
+<p>
+  Without a size, the canvas takes the window's preferred size.
+  Give it one in its <code>style</code> attribute, such as <code>width: 100vw; height: 100vh</code>, and the window follows the page instead.
+  <code>dotnet publish -c Release</code> writes a trimmed build that any static web server can host.
+</p>
+<p>
+  <code>slint-xplat</code> takes <code>web</code> as a platform too, for a web project
+  that shares <code>ui/</code> and <code>Shared/</code> with the desktop, Android, and iOS projects.
+</p>
+<pre><code class="language-sh">dotnet new slint-xplat -o MyApp --platforms desktop --platforms web</code></pre>
+
+<h2>Why RunAsync</h2>
+<p>
+  On the desktop, <code>Run</code> blocks: it runs the event loop until the last window closes.
+  A browser tab has one thread, and if the code on it never returns, the page freezes.
+  So in the browser, the event loop runs from the browser's animation frames instead,
+  and <code>RunAsync</code> returns a task that completes when the loop quits.
+  An exception in a callback stops the loop and comes out of the <code>await</code>, as it comes out of <code>Run</code> on the desktop.
+</p>
+<p>
+  On the desktop, <code>RunAsync</code> runs like <code>Run</code> and returns a completed task,
+  so the code that the platforms share can always await it.
+  Calling <code>Run</code> in the browser throws an exception that says to use <code>RunAsync</code>, instead of freezing the page.
+</p>
+
+<h2>How It Fits Together</h2>
+<div class="pipeline">
+  <div class="row">
+    <span class="when">At build time</span>
+    <span class="box"><code>.slint</code> files</span><span class="arrow">→</span>
+    <span class="box">slint-compiler -f csharp<small>MSBuild, <code>&lt;SlintFile&gt;</code></small></span><span class="arrow">→</span>
+    <span class="box">typed C# classes<small>with the <code>.slint</code> files and images embedded</small></span>
+  </div>
+  <div class="row">
+    <span class="when">At link time</span>
+    <span class="box">Slint in Rust<small>for <code>wasm32-unknown-emscripten</code></small></span><span class="arrow">+</span>
+    <span class="box">.NET's runtime<small>Mono for WebAssembly</small></span><span class="arrow">→</span>
+    <span class="box hl">dotnet.native.wasm<small>linked by .NET's Emscripten</small></span>
+  </div>
+  <div class="row">
+    <span class="when">At run time</span>
+    <span class="box">your C# code</span><span class="arrow">→</span>
+    <span class="box">Slint.dll<small>the same P/Invokes</small></span><span class="arrow">→</span>
+    <span class="box">Slint<small>FemtoVG on WebGL 2</small></span><span class="arrow">→</span>
+    <span class="box">&lt;canvas&gt;</span>
+  </div>
+</div>
+<p>
+  .NET's WebAssembly runtime is built with <a href="https://emscripten.org">Emscripten</a>,
+  and it can link native libraries into itself, which the <code>wasm-tools</code> workload makes possible.
+  So the Slint library builds for Emscripten as a static library, and the package carries it next to the desktop and mobile ones.
+  The C# side doesn't change: the same P/Invokes reach Slint, now inside the same <code>.wasm</code> file.
+</p>
+<p>
+  Slint's C++ API already runs in the browser through Emscripten, with a backend that draws into a canvas.
+  Rather than write a second one, I moved that backend into a crate that both C++ and .NET use.
+  It works both ways: what I added for .NET, phones' keyboards, input methods, and the clipboard, C++ apps get too.
+</p>
+<p>
+  The browser has no files for Slint to load, so the build embeds the <code>.slint</code> files,
+  the images they use, and the bundled translations in the assembly.
+  Before the first component loads, the library writes them into Emscripten's in-memory file system.
+</p>
+<div class="shots wide">
+  <figure><img src="../images/browser-todo.jpg" alt="The todo example in Chrome: a text field, an Add New Entry button, sorting and filtering checkboxes, and a list of todos, the last one added in the browser" width="800" height="600" loading="lazy">
+    <figcaption>The todo example, in Chrome</figcaption></figure>
+  <figure><img src="../images/browser-gallery-de.jpg" alt="The widget gallery in Chrome, with a German browser language: a menu bar, a sidebar with Eingabe for Input, and buttons, a slider, and a spinner" width="900" height="640" loading="lazy">
+    <figcaption>The gallery, with German as the browser's language</figcaption></figure>
+</div>
+<p>
+  The todo and gallery examples have browser versions that share their C# with the desktop.
+  The gallery picks a bundled translation from the browser's language, and its sidebar shows Eingabe for Input.
+</p>
+
+<h2>Typing Like on the Web</h2>
+<p>
+  A canvas can't take text: phones show no keyboard for it, and input methods have nowhere to compose.
+  So while a Slint text input has the focus, a hidden <code>&lt;input&gt;</code> element takes it, placed at the text cursor.
+  It sets the <code>inputmode</code> that matches the field's input type, so that phones can offer a number pad for a number field.
+  Phones' keyboards type into it without key events that Slint knows, and the text still reaches Slint.
+  Input methods compose in it, at the cursor, and Slint shows the composition in the field as you type.
+</p>
+<p>
+  Copy and paste use the browser's own events, so the usual shortcuts and the browser's menu work.
+  Outside those events, a copy from Slint's own context menu goes through the browser's asynchronous clipboard, which the browser may refuse.
+  A paste from that menu gets nothing: a page reads the clipboard only during a paste event.
+</p>
+<div class="shots">
+  <figure><img src="../images/browser-phone.jpg" alt="The todo example on a phone-sized page, with an entry typed through a phone's keyboard" width="390" height="844" loading="lazy">
+    <figcaption>On a phone, typed without key events</figcaption></figure>
+</div>
+
+<h2>What Broke on the Way</h2>
+<p>Three problems took most of the time, and each one was invisible on the desktop.</p>
+<ul>
+  <li>
+    <strong>Function pointers.</strong> Mono on WebAssembly has no way to call a native function that takes a C# function pointer,
+    and aborts at the first one. Ten of the library's 153 imports take one, for callbacks and timers.
+    They now take the pointer as a plain number, behind wrappers with the typed signatures, on every platform.
+  </li>
+  <li>
+    <strong>A newer Rust than Emscripten.</strong> .NET 10 links with Emscripten 3.1.56, which rejects two feature names
+    that today's Rust writes into its WebAssembly objects. The build script removes them from the library's objects.
+  </li>
+  <li>
+    <strong>A struct that changed shape.</strong> In Emscripten 3.1.56, the WebGL context attributes are <code>int</code> fields;
+    newer versions use <code>bool</code>, and the backend expected those.
+    The C side wrote past the end of the struct, and regular builds happened to survive it.
+    Only the optimized link of a published app failed to create its WebGL context.
+    The backend now creates the context in JavaScript, which works with any Emscripten version.
+  </li>
+</ul>
+
+<h2>Size and Speed</h2>
+<p>
+  The honest number first: a published app downloads <code>dotnet.native.wasm</code> of 33 MB, or 7.2 MB with Brotli,
+  which web servers usually apply.
+  It holds .NET's runtime, Slint's renderers, and Slint's compiler, since the generated code compiles the <code>.slint</code> files at startup.
+  The C# side is small: the trimmed <code>Slint.wasm</code> assembly is 57 KB.
+  Nothing has been done about the size yet; precompiling the <code>.slint</code> files would let the compiler stay out.
+</p>
+<p>
+  Once the page has loaded, Slint is quick: Slint draws only when something changes,
+  and in an early test, a full redraw at 1280×800 with the software renderer took about 1.4 ms.
+</p>
+
+<h2>Tested in a Real Browser</h2>
+<p>
+  CI publishes a trimmed Release build, the kind that breaks most often, and runs it in headless Chrome.
+  A small Node.js script drives Chrome over its DevTools protocol, with no npm packages,
+  and follows steps from a JSON file: wait for a line on the console, click, type, compose, copy, paste, and tap.
+  The test app checks a counter, a timer, <code>await</code> inside a callback, quitting, and an exception that stops the loop,
+  with both renderers and in a phone's emulation with touch.
+  The package workflow does the same for an app from the <code>slint-web</code> template, built from the packages it's about to publish.
+</p>
+<p>
+  The steps check what reaches C#, not what's on screen, and screenshots for this article showed what that misses:
+  Japanese text arrives in C# correctly, but Slint has no font to draw it with, see below.
+</p>
+
+<h2>DrawnUI on Slint</h2>
+<p>
+  <a href="https://github.com/DrawnUi/DrawnUi.Net">DrawnUI</a> is a .NET UI framework that draws everything with SkiaSharp,
+  with hosts for MAUI, Blazor, OpenTK, and WPF.
+  I wrote one more host, <code>DrawnUi.Slint</code>: a <code>DrawnUiView</code> element in a <code>.slint</code> file
+  shows a DrawnUI canvas, and passes it its size, the mouse, the wheel, touch, and the keyboard.
+  A Slint UI and DrawnUI's controls share one window.
+</p>
+<p class="file">ui/main.slint</p>
+<pre><code class="language-plaintext">import { DrawnUiView } from "drawnui.slint";
+export { DrawnUiHost } from "drawnui.slint";
+
+export component MainWindow inherits Window {
+    DrawnUiView { view-id: 0; }
+}</code></pre>
+<p class="file">Program.cs</p>
+<pre><code class="language-csharp">using var window = MainWindow.Create();
+using var host = SlintCanvasHost.Attach(window.Instance, viewId: 0);
+host.Canvas.Content = new SkiaStack
+{
+    Children = new List&lt;SkiaControl&gt; { new SkiaButton("Tap me") { Clicked = (me, args) =&gt; window.Title = "Tapped" } },
+};
+window.Run();</code></pre>
+<p>
+  By default, the canvas draws into a raster surface that works with any Slint renderer.
+  With Slint's FemtoVG renderer on OpenGL, it can draw on the GPU, on Slint's own OpenGL context.
+  The gallery sample compiles the pages of DrawnUI's OpenTK sample unchanged, next to a Slint sidebar,
+  and DrawnUI's Pong runs in a whole window.
+  The host also runs on Android and iOS, with touch and the phones' keyboards.
+</p>
+<div class="shots wide">
+  <figure><img src="../images/drawnui-gallery.jpg" alt="The DrawnUI gallery on Slint: a Slint sidebar next to DrawnUI's shader page" width="1200" height="800" loading="lazy">
+    <figcaption>DrawnUI's pages next to a Slint sidebar</figcaption></figure>
+</div>
+<div class="shots">
+  <figure><img src="../images/drawnui-pong.jpg" alt="DrawnUI's Pong in a Slint window" width="480" height="852" loading="lazy">
+    <figcaption>DrawnUI's Pong</figcaption></figure>
+</div>
+<p>
+  It's in the <a href="https://github.com/yurkinh/DrawnUi.Maui/tree/slint/src/Slint"><code>slint</code> branch of my fork</a>,
+  on its way to DrawnUI as a pull request, so that <code>DrawnUi.Slint</code> ships with DrawnUI's other hosts.
+</p>
+
+<h2>Smaller Things</h2>
+<ul>
+  <li>The desktop projects of <code>dotnet new slint</code> and <code>slint-xplat</code> are <code>WinExe</code>,
+    so Windows no longer opens a console window next to the app's window.</li>
+  <li>The browser runner, <code>scripts/run_in_chrome.mjs</code>, is in the repository, for testing your own web app the same way.</li>
+</ul>
+
+<h2>What It's Not, Yet</h2>
+<p>The browser support is new, and it has limits:</p>
+<ul>
+  <li>One window, which renders into the canvas.</li>
+  <li>Slint draws text with the Inter font, which it embeds, and can't use the browser's fonts. Scripts that Inter lacks, such as Japanese, show no glyphs yet.</li>
+  <li>Screen readers can't see into the canvas, and the browser doesn't render the text, like Slint's other web apps.</li>
+  <li>The download, about 7 MB compressed.</li>
+  <li>No live preview in the browser; the desktop project of the same solution has it.</li>
+  <li>A path with a space in it doesn't work for the embedded <code>.slint</code> files and images.</li>
+</ul>
+<p>
+  And as in Part 1: it's a preview, and a community project.
+  The draft pull request to the Slint repository is still open.
+</p>
+
+<h2>Try It</h2>
+<ul>
+  <li>Install the workload and the templates: <code>dotnet workload install wasm-tools</code>
+    and <code>dotnet new install yurkinh.slint.net.Templates</code>, then <code>dotnet new slint-web</code>.</li>
+  <li>Read the <a href="https://yurkinh.github.io/slint/#web">Web section</a> of the Slint for .NET documentation.</li>
+  <li>Run the <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-browser">todo</a>
+    or <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/gallery/dotnet-browser">gallery</a> example in your browser.</li>
+  <li>New to the bindings? Start with <a href="../slint-loves-dotnet/">Part 1</a>.</li>
+  <li>Report problems and ideas on <a href="https://github.com/yurkinh/slint/issues">GitHub</a>.</li>
+</ul>
+
+<p class="note">
+  This is a personal post.
+  Slint for .NET is a community project, not affiliated with or endorsed by SixtyFPS GmbH, the makers of Slint.
+  Slint is a trademark of SixtyFPS GmbH.
+</p></article>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  // The Slint snippets use plaintext, since highlight.js has no Slint grammar.
+  if (window.hljs) { hljs.highlightAll(); }
+</script>
+</body>
+</html>

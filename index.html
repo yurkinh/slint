@@ -114,6 +114,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#lifetime-and-errors">Lifetime and Errors</a></li>
     <li><a href="#android">Android</a></li>
     <li><a href="#ios">iOS</a></li>
+    <li><a href="#web">Web</a></li>
     <li><a href="#deployment">Deployment</a></li>
     <li><a href="#embedded-linux">Embedded Linux</a></li>
     <li><a href="#building-from-source">Building From Source</a></li>
@@ -126,7 +127,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <main>
 <h1>Slint for .NET</h1>
 <p class="subtitle">Community .NET bindings for the Slint UI toolkit, in preview.</p>
-<p class="version">yurkinh.slint.net 1.19.0-preview.10 · .NET 10</p>
+<p class="version">yurkinh.slint.net 1.19.0-preview.11 · .NET 10</p>
 
 <div class="notice">
   <strong>Community project.</strong>
@@ -145,7 +146,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
   <li>The build generates typed C# classes from your <code>.slint</code> files, so properties and callbacks are checked by the compiler.</li>
   <li>Change the UI and the C# code of a running application with hot reload.</li>
   <li>The packages ship native binaries for macOS, Linux, and Windows, on x64 and arm64, for <a href="#android">Android</a>,
-    and from 1.19.0-preview.10 for <a href="#ios">iOS</a>.</li>
+    from 1.19.0-preview.10 for <a href="#ios">iOS</a>, and from 1.19.0-preview.11 for the <a href="#web">browser</a>.</li>
   <li>The library is compatible with trimming and Native AOT.</li>
 </ul>
 <p>
@@ -153,7 +154,8 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
   and <a href="https://www.nuget.org/packages/yurkinh.slint.net.Compiler"><code>yurkinh.slint.net.Compiler</code></a>, which the first one pulls in.
   Slint for .NET is a preview: its APIs may still change.
 </p>
-<p>For a tour of what the bindings can do, read <a href="slint-loves-dotnet/">Slint ♥ .NET</a>.</p>
+<p>For a tour of what the bindings can do, read <a href="slint-loves-dotnet/">Slint ♥ .NET</a>,
+  and <a href="slint-loves-dotnet-2/">Part 2</a> for the browser and DrawnUI.</p>
 
 <h2 id="quick-start">Quick Start</h2>
 <p>Install the <a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a>.</p>
@@ -171,12 +173,13 @@ dotnet run</code></pre>
   <li><code>--style fluent</code>, <code>material</code>, <code>cupertino</code>, or <code>cosmic</code> picks the widget style,
     and <code>--slint-version</code> the version of the package.</li>
 </ul>
-<p>The package has four templates:</p>
+<p>The package has five templates:</p>
 <div class="table-wrap"><table>
 <tr><th>Template</th><th>Creates</th></tr>
 <tr><td><code>slint</code></td><td>A desktop app for macOS, Linux, and Windows.</td></tr>
 <tr><td><code>slint-android</code></td><td>An <a href="#android">Android</a> app; needs the .NET Android workload.</td></tr>
 <tr><td><code>slint-ios</code></td><td>An iOS app; needs the .NET iOS workload and a Mac.</td></tr>
+<tr><td><code>slint-web</code></td><td>A <a href="#web">web</a> app, which runs in the browser; needs the <code>wasm-tools</code> workload. From 1.19.0-preview.11.</td></tr>
 <tr><td><code>slint-xplat</code></td><td>A solution with a desktop, an Android, and an iOS project that share the UI and the logic.</td></tr>
 </table></div>
 <p>
@@ -187,6 +190,7 @@ dotnet run</code></pre>
   Without the Android or iOS workload, pick the projects with <code>--platforms</code>:
 </p>
 <pre><code class="language-sh">dotnet new slint-xplat -o MyApp --platforms desktop --platforms android</code></pre>
+<p><code>--platforms web</code> adds a web project, which isn't in the defaults, since it needs the <code>wasm-tools</code> workload.</p>
 <h3>By Hand</h3>
 <ol>
 <li>
@@ -892,6 +896,68 @@ using var observer = UIKit.UIApplication.Notifications.ObserveDidEnterBackground
   </li>
 </ul>
 
+<h2 id="web">Web</h2>
+<p><em>From 1.19.0-preview.11.</em></p>
+<p>
+  The package also runs in the browser, on .NET's WebAssembly runtime, with the same C# API and generated code as on the desktop.
+  Slint renders into a <code>&lt;canvas&gt;</code> with FemtoVG on WebGL 2, through the Emscripten backend that Slint's C++ API uses for the web.
+  <code>dotnet new slint-web -o MyApp</code> creates the app, and <code>dotnet new slint-xplat --platforms web</code> adds a web project to a solution,
+  see <a href="#templates">With a Template</a>. To set up the project yourself:
+</p>
+<ol>
+  <li>
+    <p>Install the workload that links Slint into .NET's WebAssembly runtime, with <code>dotnet workload install wasm-tools</code>,
+      and create a project with the WebAssembly SDK and your <code>.slint</code> file:</p>
+    <pre><code class="language-xml">&lt;Project Sdk="Microsoft.NET.Sdk.WebAssembly"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;
+    &lt;OutputType&gt;Exe&lt;/OutputType&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;SlintFile Include="ui/app-window.slint" /&gt;
+    &lt;PackageReference Include="yurkinh.slint.net" Version="1.19.0-preview.11" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</code></pre>
+  </li>
+  <li>
+    <p>Add <code>wwwroot/index.html</code> with a canvas with the id <code>canvas</code>, and start .NET:</p>
+    <pre><code class="language-xml">&lt;canvas id="canvas"&gt;&lt;/canvas&gt;
+&lt;script type="module"&gt;
+  import { dotnet } from "./_framework/dotnet.js";
+  await dotnet.run();
+&lt;/script&gt;</code></pre>
+    <p>Without a size, the canvas takes the window's preferred size.
+      With a size in its <code>style</code> attribute, such as <code>style="width: 100vw; height: 100vh"</code>, the window follows the page.</p>
+  </li>
+  <li>
+    <p>Await <code>RunAsync</code> instead of calling <code>Run</code>, since the browser's thread can't block:</p>
+    <pre><code class="language-csharp">using var app = AppWindow.Create();
+app.OnRequestIncreaseValue(() =&gt; app.Counter++);
+await app.RunAsync();</code></pre>
+    <p>The task completes when <code>EventLoop.Quit</code> stops the loop, and fails with the exception of a callback.
+      <code>Run</code> throws in the browser.
+      On the desktop, <code>RunAsync</code> runs like <code>Run</code> and returns a completed task, so code that the platforms share can await it.</p>
+  </li>
+  <li><code>dotnet run</code> serves the app, and <code>dotnet publish -c Release</code> writes a trimmed build to <code>bin/Release/net10.0/publish/wwwroot</code>,
+    which any static web server can host.</li>
+</ol>
+<ul>
+  <li>The build embeds the <code>.slint</code> files, the images they use, and the bundled translations in the assembly,
+    and the library writes them into the browser's file system before the first component loads.</li>
+  <li>Text input works with phones' keyboards and input methods, through a hidden <code>&lt;input&gt;</code> at the text cursor.
+    Copy and paste work with the browser's shortcuts and menu; a paste from Slint's own menu gets nothing, since a page can read the clipboard only in a paste event.</li>
+  <li>To use the software renderer instead of WebGL, set <code>SLINT_BACKEND</code> before .NET starts, since Slint reads Emscripten's environment, not .NET's:
+    <code>await dotnet.withEnvironmentVariable("SLINT_BACKEND", "emscripten-software").run();</code></li>
+</ul>
+<p>Limits:</p>
+<ul>
+  <li>One window, which renders into the canvas.</li>
+  <li>Slint draws text with the Inter font, which it embeds; it can't use the browser's fonts, so scripts that Inter lacks, such as Japanese, show no glyphs.</li>
+  <li><code>dotnet.native.wasm</code> is about 33 MB, or 7 MB with Brotli, which web servers usually serve compressed.</li>
+  <li>A path with a space in it doesn't work for the <code>.slint</code> files and images.</li>
+  <li>No live preview in the browser.</li>
+</ul>
+
 <h2 id="deployment">Deployment</h2>
 <p>Publish the application for a runtime identifier, which picks the native library of that platform:</p>
 <pre><code class="language-sh">dotnet publish -c Release -r osx-arm64
@@ -904,6 +970,7 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <tr><td>Linux</td><td><code>linux-x64</code>, <code>linux-arm64</code></td></tr>
 <tr><td>Windows</td><td><code>win-x64</code>, <code>win-arm64</code></td></tr>
 <tr><td>Android, from 1.19.0-preview.7</td><td><code>android-arm64</code>, <code>android-x64</code></td></tr>
+<tr><td>The browser, from 1.19.0-preview.11</td><td><code>browser-wasm</code>, as a static library that the app links</td></tr>
 </table></div>
 <ul>
   <li>The application loads the <code>.slint</code> files, and the images they use, at run time.
@@ -1011,6 +1078,10 @@ dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
 <h3>"Error adding gbm buffer as framebuffer" on embedded Linux</h3>
 <p>The display driver doesn't take buffer modifiers, such as <code>virtio-gpu</code> in a virtual machine.
   Run with <code>SLINT_BACKEND=linuxkms-software</code>, or update to 1.19.0-preview.10, see <a href="#embedded-linux">Embedded Linux</a>.</p>
+<h3>"Could not create a WebGL 2 context" in the browser</h3>
+<p>The browser has WebGL 2 turned off, or no GPU it allows. Use the software renderer, see <a href="#web">Web</a>.</p>
+<h3>"The browser's thread can't block: use RunAsync"</h3>
+<p>Replace <code>Run</code> with <code>await RunAsync()</code> in the web project, see <a href="#web">Web</a>.</p>
 <h3>The window doesn't open on Linux</h3>
 <p>Install <code>libxkbcommon-x11</code>, and check that <code>DISPLAY</code> or <code>WAYLAND_DISPLAY</code> is set.</p>
 
@@ -1048,6 +1119,11 @@ dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
     drawing with OpenGL below the scene and into a texture, see <a href="#opengl">Drawing With OpenGL</a>.</li>
   <li><a href="https://github.com/yurkinh/Microcharts/tree/slint/Sources/Microcharts.Samples.Slint">Microcharts gallery</a>: charts drawn with SkiaSharp into Slint images, on the desktop, Android, and iOS, see <a href="#charts">Charts</a>.</li>
   <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-android">Todo for Android</a>: the todo example in a <code>SlintActivity</code>, sharing its logic with the desktop version.</li>
+  <li><a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-browser">Todo</a> and
+    <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/gallery/dotnet-browser">gallery</a> for the browser:
+    the same logic as on the desktop, with <code>RunAsync</code>; the gallery has its bundled translations, see <a href="#web">Web</a>.</li>
+  <li><a href="https://github.com/yurkinh/DrawnUi.Maui/tree/slint/src/Slint">DrawnUI for Slint</a>: DrawnUI's SkiaSharp controls in a Slint window,
+    with a gallery and Pong, in a fork of DrawnUI.</li>
 </ul>
 <p>The carousel, speedometer, food processor, and analog clock have C# versions too, and the viewer shows the examples that have no logic, such as the layouts.</p>
 
