@@ -477,6 +477,8 @@ sealed class Counter : Component
   so use `If` and `ForEach` for parts that come and go.
   A Debug build writes a warning when that happens.
 - `Component<TState>` has a `State`, which `SetState(s => s.Name = name)` changes.
+- A component can show other components, which keep their own state, such as fields of the parent:
+  `new HorizontalBox { _left, _right }`. A change of a child renders the window that shows it.
 - An `in-out` property binds both ways, such as `new LineEdit().Text(() => _name.Value, text => _name.Value = text)`.
 - `ForEach` repeats a template for each item, and `If` shows its child while a condition holds:
 
@@ -499,17 +501,17 @@ sealed class Counter : Component
   ```
 
   The build generates a builder for each component that the file exports, in the project's namespace,
-  and the pages import the file from the output directory.
+  and the pages import the file from the output directory, or with `SlintEmbedFiles` from the assembly.
 
 Pages compile their `.slint` code once, and keep the result in `Page.CacheDirectory`,
 so the next start reads it in under a millisecond instead of compiling it again.
 `Page.Style` sets the widget style of the pages.
 Hot reload of the C# code renders the components again: a changed value keeps the window, and a changed structure replaces it.
-`examples/todo/dotnet-markup` is the todo example in C#.
+`examples/todo/dotnet-markup` is the todo example in C#,
+and `examples/digits/dotnet-markup` the Digits game of [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), ported.
 
 Builders whose names clash with types that apps import, such as `Window`, `Image`, and `Path`, end in `Element`, such as `WindowElement`.
 The package works with trimming and Native AOT.
-Components of your own `.slint` files don't work with `SlintEmbedFiles` yet, so not on Android, iOS, or in the browser.
 
 ## Timers and Async Code
 

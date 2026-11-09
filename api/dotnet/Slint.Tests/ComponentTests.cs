@@ -80,6 +80,53 @@ public sealed class ComponentTests
         };
     }
 
+    private sealed class Pair : Component
+    {
+        public readonly Counter Left = new();
+        public readonly Counter Right = new();
+        public readonly Form Details = new();
+
+        protected override Element Render() => new HorizontalBox { Left, Right, Details };
+    }
+
+    private sealed class Orphan : Component
+    {
+        protected override Element Render() => new Text("Orphan");
+    }
+
+    [TestMethod]
+    public void NestsComponentsWithTheirOwnState() => SlintThread.Run(() =>
+    {
+        using var pair = new Pair();
+        var instance = pair.Page.Instance;
+        // The counters render in order: c0 and p0 are the left one's, c1 and p1 the right one's.
+        Assert.AreEqual("Count: 0", instance.GetProperty("p0"));
+        instance.Invoke("c1");
+        instance.Invoke("c1");
+        Assert.AreEqual("Count: 0", instance.GetProperty("p0"));
+        Assert.AreEqual("Count: 2", instance.GetProperty("p1"));
+        Assert.AreSame(instance, pair.Page.Instance);
+
+        // A change of a child's signal outside a handler renders the window that shows it.
+        pair.Left.Set(5);
+        Assert.AreEqual("Count: 5", instance.GetProperty("p0"));
+
+        // So does the state of a nested Component<TState>.
+        instance.SetProperty("p2", "Ada");
+        Testing.MockElapsedTime(0);
+        Assert.AreEqual("Ada", pair.Details.Current.Name);
+        instance.Invoke("c2");
+        Assert.AreEqual(1, pair.Details.Current.Saves);
+        Assert.AreEqual("", instance.GetProperty("p2"));
+    });
+
+    [TestMethod]
+    public void RejectsAComponentInATreeThatNoComponentRenders() => SlintThread.Run(() =>
+    {
+        var error = Assert.ThrowsExactly<InvalidOperationException>(() => Page.Create(new VerticalBox { new Orphan() }));
+        StringAssert.Contains(error.Message, "Orphan");
+    });
+
     [TestMethod]
     public void RendersAgainAfterAHandlerWithoutCompilingAgain() => SlintThread.Run(() =>
     {

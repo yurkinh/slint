@@ -1048,9 +1048,27 @@ Next:
         with `Page.Style` for `--style`; the app from local packages ran published with Native AOT.
       - The README has a section "UI Written in C#", the package its own README, and What's New an entry for preview 13.
       - Not done: the samples of Comet ported, which move to phase 6.
-    - Phase 6, 1 week: components inside components, each with its own state, as `.slint` components that a parent page creates;
-      component files on Android, iOS, and in the browser, through `SlintEmbedFiles`;
-      and the samples of Comet ported, for what the API misses.
+    - Phase 6, done on 2026-11-09:
+      - `Element.Add(Component)` puts a component inside the tree of another, such as a field of the parent, which keeps its state.
+        The page of the outer component renders it inline, and the signals and `SetState` of the inner one render that page again.
+        A component in a tree that no component renders throws, and a hot reload renders the inner components too.
+        Inlining replaced the plan's `.slint` component per inner component: a page compiles once either way.
+      - `Element.ApplicationFile` resolves against `GeneratedApi.BaseDirectory`, and pages read the files that the assemblies embed,
+        so component files work with `SlintEmbedFiles`, which Android, iOS, and the browser use.
+        A desktop app with `SlintEmbedFiles` and no `.slint` file in its output imports them; the devices aren't tried yet.
+        With embedded files, the cache key has the build of the application instead of the times of the files.
+      - `examples/digits/dotnet-markup` ports the Digits game of Comet, in `examples/dotnet.slnx`, so CI builds and smoke-tests it.
+        Playing it through its callbacks wins, undoes, shows the error of an invalid division, and lists the operations,
+        all with one compiled source.
+      - What the port showed:
+        - Comet renders the tree from the state with C# conditions and loops, which here would compile a page per state;
+          the port keeps the tree fixed, with a tile per place of the board, lambdas for the values, and `If` for the tabs and messages.
+        - The style's `Button` has no background or text color, so the tiles and keys are a `Rectangle` with a `Text` and a `TouchArea`;
+          a builder for such a clickable shape would save that.
+        - Slint has no margin, so spacing and padding go on the layouts.
+        - The fonts that Slint embeds have no undo arrow, where Comet shows an image.
+    - Phase 7, next: the other samples of Comet, such as the task app with navigation between pages,
+      which needs more than one page per window or a navigation element.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,

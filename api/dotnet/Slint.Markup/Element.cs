@@ -76,14 +76,21 @@ public abstract partial class Element : IEnumerable<Element>
     internal string? Import { get; }
 
     /// <summary>
-    /// The path of <paramref name="path"/> in the application's directory, which the generated builders of an application's
-    /// <c>.slint</c> files import their components from.
+    /// The path of <paramref name="path"/> where the application loads its <c>.slint</c> files from:
+    /// its directory, or with <c>SlintEmbedFiles</c> the files that the assembly embeds.
+    /// The generated builders of an application's <c>.slint</c> files import their components from there.
     /// </summary>
     public static string ApplicationFile(string path) =>
-        Path.Combine(AppContext.BaseDirectory, path).Replace('\\', '/');
+        Path.GetFullPath(Path.Combine(Slint.Generated.GeneratedApi.BaseDirectory, path)).Replace('\\', '/');
 
     /// <summary>Adds a child.</summary>
     public void Add(Element child) => Children.Add(child);
+
+    /// <summary>
+    /// Adds the UI of <paramref name="component"/>, which keeps its own state, such as a field of the parent component.
+    /// Its changes render the window that shows it again.
+    /// </summary>
+    public void Add(Component component) => Children.Add(new NestedComponent(component));
 
     IEnumerator<Element> IEnumerable<Element>.GetEnumerator() => Children.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => Children.GetEnumerator();
@@ -146,4 +153,10 @@ public abstract partial class Element<TSelf> : Element where TSelf : Element<TSe
 
     /// <summary>Sets a property to a <c>.slint</c> expression.</summary>
     public TSelf Property(string name, SlintType type, Expr expression) { SetExpression(name, type, expression); return (TSelf)this; }
+}
+
+/// <summary>The place of a <see cref="Component"/> inside the tree of another, whose page renders it.</summary>
+internal sealed class NestedComponent(Component component) : Element("component")
+{
+    public Component Component { get; } = component;
 }

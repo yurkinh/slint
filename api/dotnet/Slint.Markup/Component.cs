@@ -84,7 +84,13 @@ public sealed class SignalList<T> : Collection<T>, ISignal
 public abstract class Component : IDisposable
 {
     private Page? _page;
+    private Component? _host;
+    private bool _subscribed;
     private int _slintThread;
+
+    /// <summary>The component whose page renders, during that, on this thread.</summary>
+    [ThreadStatic]
+    private static Component? t_rendering;
     private bool _dirty;
     private bool _rendering;
 
@@ -106,6 +112,11 @@ public abstract class Component : IDisposable
     /// </summary>
     protected void Invalidate()
     {
+        if (_host != null)
+        {
+            _host.Invalidate();
+            return;
+        }
         if (_page == null)
         {
             return;
@@ -130,39 +141,74 @@ public abstract class Component : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private Page CreatePage()
+    /// <summary>Returns the UI of this component inside the component whose page renders it.</summary>
+    internal Element RenderNested()
     {
-        _slintThread = Environment.CurrentManagedThreadId;
+        var host = t_rendering ?? throw new InvalidOperationException(
+            $"{GetType().Name} is inside the tree of a page that no Component renders; add it to the tree of a Component");
+        if (host == this)
+        {
+            throw new InvalidOperationException($"{GetType().Name} is inside its own tree");
+        }
+        _host = host;
+        Subscribe();
+        return Render();
+    }
+
+    private void Subscribe()
+    {
+        if (_subscribed)
+        {
+            return;
+        }
+        _subscribed = true;
         foreach (var signal in Signals())
         {
             signal.Changed += Invalidate;
         }
+    }
+
+    private Page CreatePage()
+    {
+        _slintThread = Environment.CurrentManagedThreadId;
+        Subscribe();
+        _page = RenderingAsHost(() => Page.Create(Render));
+        _page.AfterHandler = Refresh;
+        // A hot reload changes the code, so another structure is expected there.
+        _page.Reload = () => RenderingAsHost(() =>
+        {
+            _page.Rebuild();
+            return 0;
+        });
+        return _page;
+    }
+
+    /// <summary>Runs <paramref name="render"/>, which renders the page, with this component as the host of the components inside it.</summary>
+    private T RenderingAsHost<T>(Func<T> render)
+    {
+        var previous = t_rendering;
+        t_rendering = this;
         _rendering = true;
         try
         {
-            _page = Page.Create(Render);
+            return render();
         }
         finally
         {
             _rendering = false;
+            t_rendering = previous;
         }
-        _page.AfterHandler = Refresh;
-        return _page;
     }
 
     private void Refresh()
     {
         _dirty = false;
         var before = _page!.Source;
-        _rendering = true;
-        try
+        RenderingAsHost(() =>
         {
             _page.Rebuild();
-        }
-        finally
-        {
-            _rendering = false;
-        }
+            return 0;
+        });
         if (_page.Source != before && s_warnOnRecompile)
         {
             Console.Error.WriteLine(

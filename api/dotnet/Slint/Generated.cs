@@ -169,6 +169,21 @@ public static class GeneratedApi
         return levels;
     }
 
+    /// <summary>
+    /// Makes <paramref name="compiler"/> read the files that the assemblies embed, if any,
+    /// and returns whether there are, for the pages of <c>Slint.Markup</c>.
+    /// </summary>
+    internal static bool UseEmbeddedFiles(Compiler compiler)
+    {
+        _ = BaseDirectory;
+        if (s_embeddedFiles == null)
+        {
+            return false;
+        }
+        compiler.SetEmbeddedFiles(s_embeddedFiles);
+        return true;
+    }
+
     /// <summary>Maps an absolute path of the build machine to its embedded file.</summary>
     private static string EmbeddedPath(string path) =>
         s_projectDirectory == null || !Path.IsPathFullyQualified(path)

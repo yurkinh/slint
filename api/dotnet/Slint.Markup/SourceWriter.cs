@@ -90,6 +90,9 @@ internal sealed class SourceWriter
                     WriteElement(Single(element), depth, rowIndex);
                     return;
                 }
+            case NestedComponent nested:
+                WriteElement(nested.Component.RenderNested(), depth, rowIndex);
+                return;
             case IRepeater forEach:
                 {
                     var row = $"row{_rows}";

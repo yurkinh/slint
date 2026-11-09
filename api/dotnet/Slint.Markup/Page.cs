@@ -36,6 +36,7 @@ public sealed class Page : IDisposable
     private static readonly List<WeakReference<Page>> Pages = [];
     private static readonly object Unset = new();
     private static Compiler? s_compiler;
+    private static bool s_embedded;
 
     private readonly Func<Element>? _render;
     private List<Binding> _bindings = [];
@@ -64,6 +65,9 @@ public sealed class Page : IDisposable
 
     /// <summary>What runs after a handler of the page, or a change of the UI that a two-way binding passes on: <see cref="Update"/> unless a <see cref="Component"/> sets it.</summary>
     internal Action? AfterHandler { get; set; }
+
+    /// <summary>What a hot reload runs instead of <see cref="Rebuild"/>, for a <see cref="Component"/>.</summary>
+    internal Action? Reload { get; set; }
 
     /// <summary>Whether a handler of the page is running.</summary>
     internal bool Handling { get; private set; }
@@ -200,7 +204,7 @@ public sealed class Page : IDisposable
         }
         foreach (var page in pages)
         {
-            page.Rebuild();
+            (page.Reload ?? page.Rebuild)();
         }
     }
 
@@ -272,7 +276,11 @@ public sealed class Page : IDisposable
             return (cached, PageOrigin.MemoryCache, TimeSpan.Zero);
         }
         var stopwatch = Stopwatch.StartNew();
-        s_compiler ??= new Compiler();
+        if (s_compiler == null)
+        {
+            s_compiler = new Compiler();
+            s_embedded = Slint.Generated.GeneratedApi.UseEmbeddedFiles(s_compiler);
+        }
         if (Style != null && s_compiler.Style != Style)
         {
             s_compiler.Style = Style;
@@ -309,13 +317,18 @@ public sealed class Page : IDisposable
     /// <summary>
     /// The name of the cache file of <paramref name="source"/>, from what the compiled source depends on:
     /// the Slint version, the style, the source, and the <c>.slint</c> files around the files it imports,
-    /// which those may import in turn.
+    /// which those may import in turn, or the build of the application when it embeds them.
     /// </summary>
     private static string Key(string source, IEnumerable<string> imports)
     {
         var style = s_compiler!.Style ?? Environment.GetEnvironmentVariable("SLINT_STYLE") ?? "";
         var version = typeof(Compiler).Assembly.GetName().Version;
         var key = new StringBuilder($"{version}\n{style}\n{source}");
+        // Embedded files change only with a build of the application.
+        if (s_embedded)
+        {
+            key.Append('\n').Append(System.Reflection.Assembly.GetEntryAssembly()?.ManifestModule.ModuleVersionId);
+        }
         foreach (var directory in imports.Select(Path.GetDirectoryName).OfType<string>().Distinct().Where(Directory.Exists))
         {
             foreach (var file in Directory.EnumerateFiles(directory, "*.slint", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
