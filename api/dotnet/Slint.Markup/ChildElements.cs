@@ -3,7 +3,7 @@
 
 namespace Slint.Markup;
 
-// Elements that only exist as children of a GridLayout or TabWidget, which the compiler lists with their parent.
+// Elements that only exist as children of a GridLayout, a TabWidget, or a RadioGroup, which the compiler lists with their parent.
 
 /// <summary>
 /// A row of a <see cref="GridLayout"/> or <see cref="GridBox"/>: its children go into the next row, from the first column.
@@ -23,4 +23,20 @@ public sealed class Tab : Element<Tab>
 
     /// <summary>A tab with a title that the page reads again on each update.</summary>
     public Tab(Func<string> title) : base("Tab") => SetBinding("title", SlintType.String, () => title());
+}
+
+/// <summary>An option of a <see cref="RadioGroup"/>, which reports the text of the option that the user checks with <c>OnSelected</c>.</summary>
+public sealed class RadioButton : Element<RadioButton>
+{
+    /// <summary>An option with the text <paramref name="text"/>.</summary>
+    public RadioButton(string text) : base("RadioButton") => SetValue("text", SlintType.String, text);
+
+    /// <summary>Whether the user can check it.</summary>
+    public RadioButton Enabled(Func<bool> enabled) { SetBinding("enabled", SlintType.Bool, () => enabled()); return this; }
+
+    /// <summary>Whether it's checked, which the page reads again on each update.</summary>
+    public RadioButton Checked(Func<bool> isChecked) { SetBinding("checked", SlintType.Bool, () => isChecked()); return this; }
+
+    /// <summary>Runs <paramref name="toggled"/> when the user checks it; the page updates after it.</summary>
+    public RadioButton OnToggled(Action toggled) { SetHandler("toggled", [], _ => toggled()); return this; }
 }

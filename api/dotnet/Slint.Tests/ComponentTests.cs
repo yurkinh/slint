@@ -172,6 +172,66 @@ public sealed class ComponentTests
         }.CurrentIndex(() => _tab.Value, index => _tab.Value = index);
     }
 
+    private sealed class Person : Component
+    {
+        public readonly Signal<string> First = "Jane";
+        public readonly Signal<int> Age = 30;
+        public readonly Computed<string> Greeting;
+        public int Computations { get; private set; }
+        public int Renders { get; private set; }
+
+        public Person() => Greeting = new(() =>
+        {
+            Computations++;
+            return Age.Value < 18 ? $"Hey {First.Value}!" : $"Hello, {First.Value}.";
+        });
+
+        protected override Element Render()
+        {
+            Renders++;
+            return new Text(() => Greeting.Value);
+        }
+    }
+
+    [TestMethod]
+    public void ComputesValuesFromSignals() => SlintThread.Run(() =>
+    {
+        using var person = new Person();
+        var instance = person.Page.Instance;
+        Assert.AreEqual("Hello, Jane.", instance.GetProperty("p0"));
+        var computations = person.Computations;
+
+        // Reading again without a change of a dependency doesn't compute again.
+        _ = person.Greeting.Value;
+        Assert.AreEqual(computations, person.Computations);
+
+        person.Age.Value = 12;
+        Assert.AreEqual("Hey Jane!", instance.GetProperty("p0"));
+        person.First.Value = "Ada";
+        Assert.AreEqual("Hey Ada!", instance.GetProperty("p0"));
+    });
+
+    [TestMethod]
+    public void RendersOnceForTheChangesOfAnotherThread() => SlintThread.Run(() =>
+    {
+        using var counter = new Counter();
+        var instance = counter.Page.Instance;
+        var renders = counter.Renders;
+        var worker = new Thread(() =>
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                counter.Set(i + 1);
+            }
+            EventLoop.InvokeFromEventLoop(EventLoop.Quit);
+        });
+        worker.Start();
+        worker.Join();
+        EventLoop.Run();
+        Assert.AreEqual("Count: 10", instance.GetProperty("p0"));
+        Assert.AreEqual(renders + 1, counter.Renders);
+    });
+
     [TestMethod]
     public void FollowsSignalsOfStateThatComponentsShare() => SlintThread.Run(() =>
     {

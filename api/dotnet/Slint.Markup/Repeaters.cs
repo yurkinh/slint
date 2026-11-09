@@ -67,6 +67,9 @@ public sealed class Row<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTyp
     /// <summary>A handler that receives the row's item.</summary>
     public RowAction Do(Action<T> action) => new(row => action(_owner.Current[row]));
 
+    /// <summary>A handler that receives the row's item and index, such as to remove the row from a list with equal items.</summary>
+    public RowAction Do(Action<T, int> action) => new(row => action(_owner.Current[row], row));
+
     /// <summary>
     /// Shows the field <paramref name="field"/> of the row's item in a property that the user changes, such as <c>Checked</c>,
     /// and passes the change to <paramref name="set"/> with the item; the page updates after it.

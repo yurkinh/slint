@@ -7,6 +7,7 @@
   <Project Path="todo/dotnet-markup/TodoMarkup.csproj" />
   <Project Path="digits/dotnet-markup/Digits.csproj" />
   <Project Path="tasks/dotnet-markup/Tasks.csproj" />
+  <Project Path="controls-gallery/dotnet-markup/ControlsGallery.csproj" />
   <Project Path="../demos/printerdemo/dotnet/PrinterDemo.csproj" />
   <Project Path="carousel/dotnet/Carousel.csproj" />
   <Project Path="virtual_keyboard/dotnet/VirtualKeyboard.csproj" />

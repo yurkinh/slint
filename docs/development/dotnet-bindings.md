@@ -1087,7 +1087,28 @@ Next:
         - The sample's colors are for a light theme, so the port sets `Page.Style = "fluent-light"`.
         - A new window per page loses what the window shows that C# doesn't bind, such as the scrolling of a list.
           Slint's `ComponentContainer` could swap the page inside the window instead, once it's no longer experimental.
-    - Phase 8, next: the other samples of Comet, such as the mail app and the controls gallery.
+    - Phase 8, done on 2026-11-09:
+      - `Computed<T>`, like Comet's, computes a value from signals, again after a change of one that it read,
+        and a component that reads it renders again then; a component and a `Computed<T>` are both observers of the reads.
+      - The changes of signals from other threads render a component once, on the Slint thread.
+      - `RadioGroup` is in `widgets.slint`; `RadioButton` is its child, and a selection comes to C# through `OnSelected`,
+        since the built-in `RadioGroup` has no `current-index`.
+        A click on an option with the testing backend selects it.
+      - `row.Do` also has a handler with the row's index, such as to remove a row from a list with equal items.
+      - `examples/controls-gallery/dotnet-markup` ports eight pages of Comet's controls gallery: the controls, the pickers,
+        and the six pages about state, behind a sidebar, in `examples/dotnet.slnx`.
+        Each page sits under an `If`, so the gallery compiles once, and every page keeps its state;
+        only the push of the child page of the state preservation page compiles another source.
+        Driven through its callbacks, every page behaves as in Comet, and the window renders once for a handler.
+      - What the port showed:
+        - A gradient button is a `Rectangle` with an `@linear-gradient` expression, a `Text`, and a `TouchArea`,
+          since the style's `Button` has no background; the pages of Comet's helpers style many controls that way.
+        - Slint's date and time pickers are popups, which open with `show()` on their id;
+          `Slint.Markup` has neither element ids nor `.slint` code in handlers, so the port leaves them out.
+        - The other 23 pages are about MAUI's platform APIs, such as maps, the battery, and the clipboard, or MAUI's own pages,
+          and the remaining samples of Comet show nothing new for the core.
+    - Phase 9, next: element ids and `.slint` statements in handlers, such as `popup.show()`,
+      and a clickable shape that styles like a button, for what the ports wrote by hand.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,

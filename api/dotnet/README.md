@@ -478,6 +478,9 @@ sealed class Counter : Component
   so use `If` and `ForEach` for parts that come and go.
   A Debug build writes a warning when that happens.
 - `Component<TState>` has a `State`, which `SetState(s => s.Name = name)` changes.
+- `Computed<T>` is a value computed from signals, such as `new Computed<string>(() => $"{first.Value} {last.Value}")`,
+  which computes again after a change of a signal that it read.
+- Changes from other threads render once, on the Slint thread.
 - A component can show other components, which keep their own state, such as fields of the parent:
   `new HorizontalBox { _left, _right }`. A change of a child renders the window that shows it.
 - `Navigation` is a stack of pages, such as the pages of a tab of a `TabWidget`;
@@ -508,7 +511,8 @@ sealed class Counter : Component
   new If(() => _todos.Count == 0) { new Text("Nothing to do") },
   ```
 
-  `row.Get` reads a field of the item, also of a record in it; `row.Bind` also passes the user's changes back, and `row.Do` handles a callback.
+  `row.Get` reads a field of the item, also of a record in it; `row.Bind` also passes the user's changes back,
+  and `row.Do` handles a callback, with the item and, if needed, its index; `row.Item` is an item without fields, such as a string.
 - `new Expr("parent.width / 2")` sets a property to a `.slint` expression, and `.Property(name, type, value)` sets one that a builder lacks.
 - The components of your own `.slint` files get builders too:
 
@@ -524,7 +528,8 @@ so the next start reads it in under a millisecond instead of compiling it again.
 `Page.Style` sets the widget style of the pages.
 Hot reload of the C# code renders the components again: a changed value keeps the window, and a changed structure replaces it.
 `examples/todo/dotnet-markup` is the todo example in C#,
-and `examples/digits/dotnet-markup` and `examples/tasks/dotnet-markup` the Digits game and the task app of [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), ported.
+and `examples/digits/dotnet-markup`, `examples/tasks/dotnet-markup`, and `examples/controls-gallery/dotnet-markup`
+the Digits game, the task app, and part of the controls gallery of [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), ported.
 
 Builders whose names clash with types that apps import, such as `Window`, `Image`, and `Path`, end in `Element`, such as `WindowElement`.
 The package works with trimming and Native AOT.

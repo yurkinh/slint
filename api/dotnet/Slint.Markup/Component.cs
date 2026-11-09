@@ -30,7 +30,7 @@ public sealed class Signal<T>(T value) : ISignal
     {
         get
         {
-            Component.Track(this);
+            Tracker.Track(this);
             return _value;
         }
         set
@@ -156,9 +156,87 @@ public sealed class SignalList<T> : IList<T>, IReadOnlyList<T>, ISignal
 
     private List<T> Read()
     {
-        Component.Track(this);
+        Tracker.Track(this);
         return _items;
     }
+}
+
+/// <summary>What follows the signals that it reads: a component, or a <see cref="Computed{T}"/>.</summary>
+internal interface ISignalObserver
+{
+    void Observe(ISignal signal);
+}
+
+/// <summary>Passes the signals that code reads to the observer that runs it, on this thread.</summary>
+internal static class Tracker
+{
+    [ThreadStatic]
+    private static ISignalObserver? t_observer;
+
+    public static void Track(ISignal signal) => t_observer?.Observe(signal);
+
+    public static T Run<T>(ISignalObserver observer, Func<T> action)
+    {
+        var previous = t_observer;
+        t_observer = observer;
+        try
+        {
+            return action();
+        }
+        finally
+        {
+            t_observer = previous;
+        }
+    }
+}
+
+/// <summary>
+/// A value computed from signals, like Comet's: it computes again after a change of a signal that it read,
+/// and a component that reads it renders again then.
+/// </summary>
+public sealed class Computed<T>(Func<T> compute) : ISignal, ISignalObserver
+{
+    private readonly HashSet<ISignal> _dependencies = [];
+    private T _value = default!;
+    private bool _dirty = true;
+
+    /// <inheritdoc />
+    public event Action? Changed;
+
+    /// <summary>The value, which the first read after a change of a dependency computes.</summary>
+    public T Value
+    {
+        get
+        {
+            Tracker.Track(this);
+            if (_dirty)
+            {
+                _value = Tracker.Run(this, compute);
+                _dirty = false;
+            }
+            return _value;
+        }
+    }
+
+    void ISignalObserver.Observe(ISignal signal)
+    {
+        if (_dependencies.Add(signal))
+        {
+            signal.Changed += OnDependencyChanged;
+        }
+    }
+
+    private void OnDependencyChanged()
+    {
+        if (!_dirty)
+        {
+            _dirty = true;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <inheritdoc />
+    public override string ToString() => Value?.ToString() ?? "";
 }
 
 /// <summary>
@@ -168,7 +246,7 @@ public sealed class SignalList<T> : IList<T>, IReadOnlyList<T>, ISignal
 /// A tree with the same <c>.slint</c> source only updates the values;
 /// a C# condition that changes the tree compiles another source, so prefer <see cref="If"/> and <see cref="ForEach{T}"/>.
 /// </summary>
-public abstract class Component : IDisposable
+public abstract class Component : IDisposable, ISignalObserver
 {
     private Page? _page;
     private Component? _host;
@@ -178,9 +256,11 @@ public abstract class Component : IDisposable
     private bool _expectNewStructure;
     private readonly HashSet<ISignal> _signals = [];
 
-    /// <summary>The component whose page renders or reads its lambdas, during that, on this thread.</summary>
+    private int _posted;
+
+    /// <summary>The component whose page renders, during that, on this thread: the host of the components inside its tree.</summary>
     [ThreadStatic]
-    private static Component? t_current;
+    private static Component? t_host;
 
     /// <summary>Returns the UI, from the state of the component.</summary>
     protected abstract Element Render();
@@ -214,7 +294,15 @@ public abstract class Component : IDisposable
         }
         if (Environment.CurrentManagedThreadId != _slintThread)
         {
-            EventLoop.InvokeFromEventLoop(Invalidate);
+            // The changes from other threads before the Slint thread gets to it render once.
+            if (Interlocked.Exchange(ref _posted, 1) == 0)
+            {
+                EventLoop.InvokeFromEventLoop(() =>
+                {
+                    Volatile.Write(ref _posted, 0);
+                    Invalidate();
+                });
+            }
             return;
         }
         if (_page.Handling || _rendering)
@@ -244,35 +332,21 @@ public abstract class Component : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>Makes the component that renders, or reads its lambdas, on this thread follow <paramref name="signal"/>.</summary>
-    internal static void Track(ISignal signal)
+    void ISignalObserver.Observe(ISignal signal)
     {
-        var current = t_current;
-        if (current != null && current._signals.Add(signal))
+        if (_signals.Add(signal))
         {
-            signal.Changed += current.Invalidate;
+            signal.Changed += Invalidate;
         }
     }
 
     /// <summary>Runs <paramref name="action"/> with this component as the one that follows the signals it reads.</summary>
-    internal T Tracking<T>(Func<T> action)
-    {
-        var previous = t_current;
-        t_current = this;
-        try
-        {
-            return action();
-        }
-        finally
-        {
-            t_current = previous;
-        }
-    }
+    internal T Tracking<T>(Func<T> action) => Tracker.Run(this, action);
 
     /// <summary>Returns the UI of this component inside the component whose page renders it.</summary>
     internal Element RenderNested()
     {
-        var host = t_current ?? throw new InvalidOperationException(
+        var host = t_host ?? throw new InvalidOperationException(
             $"{GetType().Name} is inside the tree of a page that no Component renders; add it to the tree of a Component");
         if (host == this)
         {
@@ -299,6 +373,8 @@ public abstract class Component : IDisposable
 
     private T Rendering<T>(Func<T> render)
     {
+        var previous = t_host;
+        t_host = this;
         _rendering = true;
         try
         {
@@ -307,6 +383,7 @@ public abstract class Component : IDisposable
         finally
         {
             _rendering = false;
+            t_host = previous;
         }
     }
 
