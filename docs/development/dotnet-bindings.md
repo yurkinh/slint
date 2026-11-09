@@ -739,6 +739,44 @@ Done:
     `examples/mvvm/dotnet`, in `examples/dotnet.slnx`, binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples)
     to a Slint UI, one global per page, ported with their MIT notice.
     `dotnet new slint --mvvm` adds a `MainViewModel`; CI instantiates it, and the publish workflow builds it with the packages.
+- **27.** Faster startup: the build compiles the `.slint` files, as a Rust app's build does, instead of the generated code at startup.
+  It's in 1.19.0-preview.12.
+  - Phase 0, done on 2026-11-07, with release builds on an Apple Silicon Mac:
+    - Compiling takes 24 ms for the todo example, 41 ms for the printer demo, and 102 ms for the gallery.
+      The 180 ms of item 26 for `Button` and `VerticalBox` didn't hold: that page compiles in 17 ms.
+    - The first call into `slint-dotnet` takes about 35 ms more, for creating the winit platform, which a Rust app also does.
+    - In the gallery, loading the files, the standard widgets included, takes 16% of the time,
+      the passes over the inlined tree 51%, and lowering to the item tree 27%.
+      So keeping the widgets across compiles would save at most 15 ms, and only on a second compile in a process.
+    - `i_slint_compiler::llr::serialize`, which the visual editor uses for previews on microcontrollers,
+      writes a compiled unit as bytes, and `CompilationResult::from_compilation_unit` of the interpreter runs it.
+      Reading a unit takes 0.5 ms for the todo example, 1 ms for the printer demo, and 3 to 5 ms for the gallery,
+      from units of 100, 243, and 818 KB.
+  - Phase 1, done: units at build time, for the desktop, see [Generated Code](#generated-code).
+    `SlintPrecompile`, on by default on the desktop, makes `Slint.targets` pass `--csharp-unit` and embed the unit.
+    - In a release build, `App.Create()` of the gallery takes 17 ms instead of 106 ms; the rest is creating the instance.
+    - The printer demo renders its images and fonts from the unit with its `.slint` files deleted,
+      while the same app compiling at startup fails to load them.
+      On 2026-11-09, screenshots of the gallery and the printer demo, with their `.slint` files moved away, showed the same.
+    - The interpreter's `CompilationResult::from_compilation_unit_with_fonts` takes the font files,
+      which the unit registers by their paths on the build machine.
+    - `slint-dotnet` enables the interpreter's `internal-mcu-interpreter` feature, and the compiler's `serde` feature.
+    - A unit fixes the style, from `SlintStyle` or else `fluent`, and `SlintStyle=native` writes no unit.
+    - `llr::bundle` records the Slint version, so a unit of another version compiles instead,
+      but two builds of one version can't tell apart a change of the format.
+  - Phase 2, done: units on Android, iOS, and in the browser, where `SlintPrecompile` is now on by default too.
+    `App.Create()`, or `MainWindow.Create()` of the todo example, in release builds:
+    - The gallery in Chrome with the GPU: 165 ms instead of 385 ms; reading the unit takes 22 ms, and the instance 110 ms.
+      Headless Chrome with SwiftShader, as in CI, spends 400 to 600 ms creating the WebGL context, so it can't measure this.
+    - The todo example on the Pixel 9 emulator: 24 ms instead of 57 ms.
+    - The todo example on an iPhone 13: 73 to 95 ms instead of 99 to 133 ms,
+      both with the 50 to 70 ms of creating the platform, which is the first call into `slint-dotnet` there.
+    - The gallery renders its icons from the unit in the browser, and the browser test steps of CI pass.
+    - Android and iOS apps embed the `.slint` files too, for the fallback, which a unit of the same build never takes.
+  - Phase 3, done: the test driver runs every case from its unit, see [Test Driver](#test-driver),
+    and `GeneratedTests` covers the fallback that compiles at startup.
+    The publish workflow checks that the apps built from the packages compile their units,
+    and runs the desktop one again without its `.slint` file.
 
 Next:
 
@@ -920,43 +958,6 @@ Next:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,
     and lose the focus, scrolling, and animations of the UI.
-- **27.** Faster startup: the generated code compiles its `.slint` files at startup, which a Rust app does at build time.
-  - Phase 0, done on 2026-11-07, with release builds on an Apple Silicon Mac:
-    - Compiling takes 24 ms for the todo example, 41 ms for the printer demo, and 102 ms for the gallery.
-      The 180 ms of item 26 for `Button` and `VerticalBox` didn't hold: that page compiles in 17 ms.
-    - The first call into `slint-dotnet` takes about 35 ms more, for creating the winit platform, which a Rust app also does.
-    - In the gallery, loading the files, the standard widgets included, takes 16% of the time,
-      the passes over the inlined tree 51%, and lowering to the item tree 27%.
-      So keeping the widgets across compiles would save at most 15 ms, and only on a second compile in a process.
-    - `i_slint_compiler::llr::serialize`, which the visual editor uses for previews on microcontrollers,
-      writes a compiled unit as bytes, and `CompilationResult::from_compilation_unit` of the interpreter runs it.
-      Reading a unit takes 0.5 ms for the todo example, 1 ms for the printer demo, and 3 to 5 ms for the gallery,
-      from units of 100, 243, and 818 KB.
-  - Phase 1, done: units at build time, for the desktop, see [Generated Code](#generated-code).
-    `SlintPrecompile`, on by default on the desktop, makes `Slint.targets` pass `--csharp-unit` and embed the unit.
-    - In a release build, `App.Create()` of the gallery takes 17 ms instead of 106 ms; the rest is creating the instance.
-    - The printer demo renders its images and fonts from the unit with its `.slint` files deleted,
-      while the same app compiling at startup fails to load them.
-    - The interpreter's `CompilationResult::from_compilation_unit_with_fonts` takes the font files,
-      which the unit registers by their paths on the build machine.
-    - `slint-dotnet` enables the interpreter's `internal-mcu-interpreter` feature, and the compiler's `serde` feature.
-    - A unit fixes the style, from `SlintStyle` or else `fluent`, and `SlintStyle=native` writes no unit.
-    - `llr::bundle` records the Slint version, so a unit of another version compiles instead,
-      but two builds of one version can't tell apart a change of the format.
-  - Phase 2, done: units on Android, iOS, and in the browser, where `SlintPrecompile` is now on by default too.
-    `App.Create()`, or `MainWindow.Create()` of the todo example, in release builds:
-    - The gallery in Chrome with the GPU: 165 ms instead of 385 ms; reading the unit takes 22 ms, and the instance 110 ms.
-      Headless Chrome with SwiftShader, as in CI, spends 400 to 600 ms creating the WebGL context, so it can't measure this.
-    - The todo example on the Pixel 9 emulator: 24 ms instead of 57 ms.
-    - The todo example on an iPhone 13: 73 to 95 ms instead of 99 to 133 ms,
-      both with the 50 to 70 ms of creating the platform, which is the first call into `slint-dotnet` there.
-    - The gallery renders its icons from the unit in the browser, and the browser test steps of CI pass.
-    - Android and iOS apps embed the `.slint` files too, for the fallback, which a unit of the same build never takes.
-  - Phase 3, done: the test driver runs every case from its unit, see [Test Driver](#test-driver),
-    and `GeneratedTests` covers the fallback that compiles at startup.
-    The publish workflow checks that the apps built from the packages compile their units,
-    and runs the desktop one again without its `.slint` file.
-
 - **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:
   `Mapsui.UI.Slint` next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto, Blazor, Android, and iOS, for a pull request to Mapsui.
   Mapsui is a map component for .NET that draws with SkiaSharp,

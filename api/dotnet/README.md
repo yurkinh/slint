@@ -201,7 +201,7 @@ Set these properties to change the generated code:
 - `SlintEmbedFiles`: `true` to embed the `.slint` files in the assembly instead of copying them, see [Publishing](#publishing).
   It's on by default on Android and iOS.
 - `SlintPrecompile`: `false` to compile the `.slint` files when the app starts.
-  By default, the build compiles them, and the app starts without compiling them again,
+  From 1.19.0-preview.12, the build compiles them by default, and the app starts without compiling them again,
   such as about 90 ms sooner for the gallery example on the desktop, and 220 ms sooner in the browser.
   With `SLINT_STYLE` set to a style other than the build's, the app compiles them at startup.
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
@@ -760,7 +760,7 @@ and `dotnet new slint-ios -o MyApp --app-id com.example.myapp` creates the app w
    dotnet build -t:Run
    ```
 
-- The build embeds Slint's framework into the app, and puts the `.slint` files into the app bundle.
+- The build embeds Slint's framework into the app, and the assembly embeds the `.slint` files with the images and fonts they use, as on Android.
 - `SlintLivePreview` isn't available on iOS yet; the build ignores it, with the warning `SLINT002`.
 - iOS ends apps in the background without notice. Keep what the user was doing when the app leaves the screen,
   with the UIKit notifications of .NET for iOS, which arrive on the Slint thread:
