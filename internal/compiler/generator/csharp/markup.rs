@@ -29,6 +29,9 @@ const SLINT_TYPES: &[&str] = &[
     "Window",
 ];
 
+/// The types of the namespaces that a .NET project imports implicitly, such as `System.IO.Path`.
+const IMPLICIT_USING_TYPES: &[&str] = &["File", "Path", "Timer"];
+
 /// The types of `Slint.Markup` itself.
 const MARKUP_TYPES: &[&str] =
     &["Element", "Expr", "ForEach", "If", "Page", "Row", "RowAction", "SlintType"];
@@ -79,7 +82,10 @@ fn map_type(ty: &Type, enums: &mut BTreeMap<SmolStr, Arc<Enumeration>>) -> Optio
 
 fn class_name(name: &str) -> String {
     let class = ident(name);
-    if SLINT_TYPES.contains(&class.as_str()) || MARKUP_TYPES.contains(&class.as_str()) {
+    if [SLINT_TYPES, IMPLICIT_USING_TYPES, MARKUP_TYPES]
+        .iter()
+        .any(|types| types.contains(&class.as_str()))
+    {
         format!("{class}Element")
     } else {
         class

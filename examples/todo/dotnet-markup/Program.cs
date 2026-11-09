@@ -18,8 +18,8 @@ void Add()
     }
 }
 
-var stopwatch = Stopwatch.StartNew();
-using var page = Page.Create(new WindowElement
+// A function, so that hot reload of this code builds the window again.
+Element Render() => new WindowElement
 {
     new VerticalBox
     {
@@ -40,8 +40,11 @@ using var page = Page.Create(new WindowElement
         new If(() => todos.Count == 0) { new Text("Nothing to do") },
         new Text(() => $"{todos.Count(t => !t.Done)} of {todos.Count} left").Color(new Slint.Color(0x80, 0x80, 0x80)),
     },
-}.Title("Todo, in C#").Width(420).Height(360));
-Console.WriteLine($"Page.Create: {stopwatch.Elapsed.TotalMilliseconds:F1} ms, of which compiling {page.CompileTime.TotalMilliseconds:F1} ms");
+}.Title("Todo, in C#").Width(420).Height(360);
+
+var stopwatch = Stopwatch.StartNew();
+using var page = Page.Create(Render);
+Console.WriteLine($"Page.Create: {stopwatch.Elapsed.TotalMilliseconds:F1} ms, of which {page.Origin} {page.CompileTime.TotalMilliseconds:F1} ms");
 if (Environment.GetEnvironmentVariable("SLINT_MARKUP_SOURCE") != null)
 {
     Console.WriteLine(page.Source);

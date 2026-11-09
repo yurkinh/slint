@@ -247,6 +247,18 @@ internal static unsafe partial class NativeMethods
     public static partial CompilationResultHandle slint_dotnet_compilation_result_from_unit(byte* data, nuint len);
 
     [LibraryImport(Library)]
+    public static partial nint slint_dotnet_compiler_build_unit(CompilerHandle compiler, Utf8Str source, Utf8Str path);
+
+    [LibraryImport(Library)]
+    public static partial byte* slint_dotnet_bytes_data(nint bytes);
+
+    [LibraryImport(Library)]
+    public static partial nuint slint_dotnet_bytes_len(nint bytes);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_bytes_free(nint bytes);
+
+    [LibraryImport(Library)]
     public static partial CompilationResultHandle slint_dotnet_compiler_build_from_source(
         CompilerHandle compiler,
         Utf8Str source,

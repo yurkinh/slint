@@ -8,6 +8,10 @@ namespace Slint.Tests;
 [TestClass]
 public sealed class MarkupTests
 {
+    // Pages compile to memory only, except in the test of the cache directory.
+    [ClassInitialize]
+    public static void KeepCompiledSourcesInMemory(TestContext _) => Page.CacheDirectory = null;
+
     private sealed record Todo(string Title, bool Done);
 
     private static Element Counter(Func<int> count, Action add) =>
@@ -146,6 +150,84 @@ public sealed class MarkupTests
             Page.Create(new Text(new Expr("no-such-thing"))));
         StringAssert.Contains(error.Message, "no-such-thing");
         StringAssert.Contains(error.Message, "export component MarkupPage");
+        Assert.DoesNotContain("edition", error.Message);
+    });
+
+    [TestMethod]
+    public void ReadsCompiledSourcesFromTheCacheDirectory() => SlintThread.Run(() =>
+    {
+        var directory = Directory.CreateTempSubdirectory("slint-markup-").FullName;
+        var previous = Page.CacheDirectory;
+        Page.CacheDirectory = directory;
+        try
+        {
+            var count = 0;
+            // A text that no other test uses, so the page isn't in the memory cache.
+            Element Tree() => new VerticalBox { new Text(() => $"Cached {count}"), new Button("Cache").OnClicked(() => count++) };
+            Page.ClearCache();
+            using (var first = Page.Create(Tree()))
+            {
+                Assert.AreEqual(PageOrigin.Compiled, first.Origin);
+            }
+            Assert.HasCount(1, Directory.GetFiles(directory, "*.unit"));
+
+            Page.ClearCache();
+            using var second = Page.Create(Tree());
+            Assert.AreEqual(PageOrigin.DiskCache, second.Origin);
+            second.Instance.Invoke("c0");
+            Assert.AreEqual("Cached 1", second.Instance.GetProperty("p0"));
+
+            using var third = Page.Create(Tree());
+            Assert.AreEqual(PageOrigin.MemoryCache, third.Origin);
+
+            // A file that isn't a unit is compiled again and replaced.
+            var file = Directory.GetFiles(directory, "*.unit").Single();
+            File.WriteAllBytes(file, [1, 2, 3]);
+            Page.ClearCache();
+            using var fourth = Page.Create(Tree());
+            Assert.AreEqual(PageOrigin.Compiled, fourth.Origin);
+            Assert.IsGreaterThan(3L, new FileInfo(file).Length);
+        }
+        finally
+        {
+            Page.CacheDirectory = previous;
+            Directory.Delete(directory, true);
+        }
+    });
+
+    [TestMethod]
+    public void RebuildsWithNewLambdasOrANewSource() => SlintThread.Run(() =>
+    {
+        var greeting = "Hello";
+        var withButton = false;
+        var clicks = 0;
+        Element Render() => withButton
+            ? new VerticalBox { new Text(() => greeting + "!"), new Button("Click").OnClicked(() => clicks++) }
+            : new VerticalBox { new Text(() => greeting) };
+
+        var page = Page.Create(Render);
+        Assert.AreEqual("Hello", page.Instance.GetProperty("p0"));
+
+        // A change of the C# code that keeps the source: the same instance takes the new lambda.
+        var instance = page.Instance;
+        greeting = "Hi";
+        page.Rebuild();
+        Assert.AreSame(instance, page.Instance);
+        Assert.AreEqual("Hi", page.Instance.GetProperty("p0"));
+
+        // A change that adds an element: a new source, and a new instance, which takes the place of the visible window.
+        page.Show();
+        withButton = true;
+        page.Rebuild();
+        Assert.AreNotSame(instance, page.Instance);
+        Assert.IsTrue(page.Instance.Window.IsVisible);
+        Assert.AreEqual("Hi!", page.Instance.GetProperty("p0"));
+        page.Instance.Invoke("c0");
+        Assert.AreEqual(1, clicks);
+
+        // Disposing hides the window, the last one, which queues a quit of the event loop.
+        page.Dispose();
+        WindowTests.TakeQueuedQuit();
     });
 
     [TestMethod]
@@ -197,10 +279,13 @@ public sealed class MarkupTests
     });
 
     [TestMethod]
-    public void HasNoTypeNamedLikeATypeOfTheSlintNamespace()
+    public void HasNoTypeNamedLikeATypeOfTheSlintOrTheImplicitlyImportedNamespaces()
     {
-        var slint = typeof(ComponentInstance).Assembly.GetExportedTypes()
-            .Where(t => t.Namespace == "Slint").Select(t => t.Name).ToHashSet();
+        // The namespaces of ImplicitUsings in a console project, which apps import with Slint.Markup.
+        string[] imported = ["Slint", "System", "System.Collections.Generic", "System.IO", "System.Linq", "System.Net.Http", "System.Threading", "System.Threading.Tasks"];
+        var slint = new[] { typeof(ComponentInstance), typeof(object), typeof(List<>), typeof(File), typeof(Enumerable), typeof(HttpClient), typeof(Thread), typeof(Task) }
+            .Select(t => t.Assembly).Distinct().SelectMany(a => a.GetExportedTypes())
+            .Where(t => imported.Contains(t.Namespace)).Select(t => t.Name).ToHashSet();
         var clashes = typeof(Page).Assembly.GetExportedTypes()
             .Where(t => t.Namespace == "Slint.Markup" && slint.Contains(t.Name)).Select(t => t.Name).ToList();
         Assert.IsEmpty(clashes, string.Join(", ", clashes));

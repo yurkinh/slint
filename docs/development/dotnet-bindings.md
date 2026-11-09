@@ -978,9 +978,26 @@ Next:
         and a test checks that no type of `Slint.Markup` clashes.
       - The documentation comments of the built-in elements become the summaries.
       - The todo example uses the generated builders, with its layout fixed through `Alignment` and `HorizontalStretch`.
-    - Phase 2, 1 week: a disk cache of compiled pages, with `llr::bundle` of item 27, for the first page of a process;
-      the edition; and hot reload, where `Page.Create(Func<Element>)` builds the tree again after a metadata update.
-      Also documentation comments for the properties of the widgets, which only the built-in elements have now.
+    - Phase 2, done on 2026-11-09:
+      - `slint_dotnet_compiler_build_unit` compiles a page into a unit with `csharp::unit::compile` of item 27,
+        so `slint-dotnet` enables the compiler's `csharp` feature.
+        `Page` keeps the units in `Page.CacheDirectory`, by default `Slint/markup` in the local application data,
+        named by a hash of the Slint version, the style, and the source, and keeps the newest 256.
+        A file that isn't a unit of this version is compiled again; one that can't be read or written means compiling.
+        `Page.Origin` tells whether a page compiled, read the cache directory, or reused a page of the process.
+      - Release build, Apple Silicon Mac: reading a page from the cache directory takes 0.2 to 0.5 ms instead of 17 to 19 ms.
+        The first page of a process takes 70 to 90 ms instead of 80 to 170 ms;
+        the rest is the first call into Slint, which a `.slint` app pays too.
+      - Pages compile with the current edition, so the compiler no longer reports that none is set.
+      - `Page.Create(Func<Element>)` keeps the function, and a `MetadataUpdateHandler` calls `Rebuild` on the Slint thread after a hot reload.
+        With the same source, the page takes the new lambdas and handlers; with another, it creates a new instance,
+        which takes the place, position, and size of the visible window.
+        With `dotnet watch`, a changed title of the todo example replaced the window, and a changed text kept it, with the C# state.
+      - `Path` and `File` of `System.IO` clash too, through implicit usings, so the builder is `PathElement`,
+        and the test checks the implicitly imported namespaces.
+      - Disposing a page hides its window.
+      - Not done: documentation comments for the properties of the widgets.
+        The widgets have none in their `.slint` files; their documentation is in the pages of the website.
     - Phase 3, 3–4 days: `.slint` components as elements, `GridLayout` rows and columns, nested structs in rows,
       and two-way bindings in rows.
   - The front end like [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), 2–3 weeks:

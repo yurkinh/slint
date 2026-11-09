@@ -207,6 +207,47 @@ pub unsafe extern "C" fn slint_dotnet_compiler_build_from_source(
     })
 }
 
+/// Compiles `source` with the compiler's configuration and the current edition into a unit,
+/// which [`slint_dotnet_compilation_result_from_unit`] runs. Returns null if it doesn't compile;
+/// `slint_dotnet_compiler_build_from_source` then reports the diagnostics.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_compiler_build_unit(
+    compiler: &mut Compiler,
+    source: Utf8Str,
+    path: Utf8Str,
+) -> *mut Vec<u8> {
+    guard(std::ptr::null_mut(), || {
+        let (source, path) = unsafe { (source.as_str()?, path.as_str()?) };
+        let style = compiler.style().cloned();
+        let mut config = compiler.compiler_configuration(i_slint_core::InternalToken).clone();
+        config.style = style.or(config.style);
+        config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+        let (_, unit) = spin_on::spin_on(i_slint_compiler::generator::csharp::unit::compile(
+            &i_slint_compiler::source_path::SourcePath::new(path),
+            source.into(),
+            config,
+        ));
+        Ok(unit.map_or(std::ptr::null_mut(), |bytes| Box::into_raw(Box::new(bytes))))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_dotnet_bytes_data(bytes: &Vec<u8>) -> *const u8 {
+    bytes.as_ptr()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_dotnet_bytes_len(bytes: &Vec<u8>) -> usize {
+    bytes.len()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_bytes_free(bytes: *mut Vec<u8>) {
+    if !bytes.is_null() {
+        drop(unsafe { Box::from_raw(bytes) });
+    }
+}
+
 /// Runs a unit that `slint-compiler -f csharp --csharp-unit` wrote, instead of compiling,
 /// and fails for a unit of another Slint version.
 #[unsafe(no_mangle)]

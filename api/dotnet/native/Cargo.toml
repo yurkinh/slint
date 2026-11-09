@@ -63,7 +63,8 @@ accessibility = ["slint-interpreter/accessibility"]
 [dependencies]
 base64 = "0.23"
 i-slint-backend-selector = { workspace = true }
-i-slint-compiler = { workspace = true, features = ["serde"] }
+# csharp: compiling a page of Slint.Markup to a unit at run time, like slint-compiler --csharp-unit.
+i-slint-compiler = { workspace = true, features = ["serde", "csharp"] }
 i-slint-core = { workspace = true, features = ["tr"] }
 slint-interpreter = { workspace = true, default-features = false, features = ["renderer-software", "compat-1-18", "display-diagnostics", "bundle-translations", "internal", "internal-mcu-interpreter"] }
 spin_on = { workspace = true }
