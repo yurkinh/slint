@@ -329,6 +329,12 @@ and `scripts/upgrade_version.sh` also bumps `api/dotnet/Directory.Build.props`.
 When `master` ports the test cases, it doesn't update their `csharp` blocks,
 such as `assign_equal_model`, which now calls `do()` in `init`, so its block reads `test` instead.
 The .NET jobs run on `macos-15`, since GitHub retired `macos-14` and cancels its jobs before they start.
+The smoke test of the samples runs them with the testing backend, which creates no `NSApplication`,
+so `SystemTrayIcon` opens the shared application before it uses the status bar,
+which otherwise fails `CGSConnectionByID` on the runner, which has no window server session.
+With units, nothing else connects to the window server first, as the compiler's font lookup did.
+MSBuild gives a runtime path with the separator of the platform, such as `ui\generated.slint` on Windows,
+and so does the name of a unit's resource.
 
 `api/dotnet/global.json` pins the .NET SDK to 10.0.401, accepting newer patches of its feature band locally,
 and the workflows install exactly that version.
@@ -506,6 +512,11 @@ Done:
   and merged `master` at 1.20.0.
   Then all its 47 CI jobs passed, with 17 skipped.
   On 2026-11-07, it took the embedding of `.slint` files and their images on Android and iOS, from iOS phase 4 of item 17.
+  On 2026-11-09, it took item 27, units compiled at build time, with `master`, and its description lists them in preview 12.
+  Its CI then found two failures, both fixed in the pull request:
+  the unit test named its resource with `/`, which is `\` on Windows,
+  and the SystemTray example crashed on the macOS runner, fixed in Slint's tray code, see [Building and Testing](#building-and-testing).
+  The ".NET Android" job also failed once, when Android ended the todo example as its incremental install finished.
   The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
   as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
   Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
