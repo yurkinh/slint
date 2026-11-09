@@ -19,7 +19,7 @@ void Add()
 }
 
 var stopwatch = Stopwatch.StartNew();
-using var page = Page.Create(new Slint.Markup.Window
+using var page = Page.Create(new WindowElement
 {
     new VerticalBox
     {
@@ -28,12 +28,15 @@ using var page = Page.Create(new Slint.Markup.Window
             new LineEdit().Text(() => draft, text => draft = text).PlaceholderText("What needs to be done?").OnAccepted(_ => Add()),
             new Button("Add New Entry").Enabled(() => draft.Trim().Length > 0).OnClicked(Add),
         },
-        new ForEach<Todo>(() => todos, row => new HorizontalLayout
+        new VerticalLayout
         {
-            new CheckBox(row.Get(t => t.Title)).Checked(row.Get(t => t.Done))
-                .OnToggled(row.Do(todo => todos[todos.IndexOf(todo)] = todo with { Done = !todo.Done })),
-            new Button("Remove").OnClicked(row.Do(todo => todos.Remove(todo))),
-        }),
+            new ForEach<Todo>(() => todos, row => new HorizontalLayout
+            {
+                new CheckBox(row.Get(t => t.Title)).Checked(row.Get(t => t.Done)).HorizontalStretch(1)
+                    .OnToggled(row.Do(todo => todos[todos.IndexOf(todo)] = todo with { Done = !todo.Done })),
+                new Button("Remove").OnClicked(row.Do(todo => todos.Remove(todo))),
+            }),
+        }.Alignment(LayoutAlignment.Start).VerticalStretch(1),
         new If(() => todos.Count == 0) { new Text("Nothing to do") },
         new Text(() => $"{todos.Count(t => !t.Done)} of {todos.Count} left").Color(new Slint.Color(0x80, 0x80, 0x80)),
     },
@@ -50,10 +53,10 @@ if (Environment.GetEnvironmentVariable("SLINT_MARKUP_BENCH") != null)
     {
         Page.ClearCache();
         stopwatch.Restart();
-        using var again = Page.Create(new Slint.Markup.Window { new VerticalBox { new Text($"Run {i}"), new Button("A").OnClicked(Add), new ForEach<Todo>(() => todos, row => new CheckBox(row.Get(t => t.Title))) } });
+        using var again = Page.Create(new WindowElement { new VerticalBox { new Text($"Run {i}"), new Button("A").OnClicked(Add), new ForEach<Todo>(() => todos, row => new CheckBox(row.Get(t => t.Title))) } });
         Console.WriteLine($"Again: {stopwatch.Elapsed.TotalMilliseconds:F1} ms, of which compiling {again.CompileTime.TotalMilliseconds:F1} ms");
         stopwatch.Restart();
-        using var cached = Page.Create(new Slint.Markup.Window { new VerticalBox { new Text($"Run {i}"), new Button("A").OnClicked(Add), new ForEach<Todo>(() => todos, row => new CheckBox(row.Get(t => t.Title))) } });
+        using var cached = Page.Create(new WindowElement { new VerticalBox { new Text($"Run {i}"), new Button("A").OnClicked(Add), new ForEach<Todo>(() => todos, row => new CheckBox(row.Get(t => t.Title))) } });
         Console.WriteLine($"Cached: {stopwatch.Elapsed.TotalMilliseconds:F2} ms");
     }
     return;

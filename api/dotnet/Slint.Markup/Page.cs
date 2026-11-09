@@ -64,7 +64,7 @@ public sealed class Page : IDisposable
     /// <summary>How long compiling the source took, or zero when the page reused a compiled source.</summary>
     public TimeSpan CompileTime { get; }
 
-    /// <summary>Creates a page from <paramref name="root"/>, a <see cref="Window"/> or an element that the page puts in one.</summary>
+    /// <summary>Creates a page from <paramref name="root"/>, a <see cref="WindowElement"/> or an element that the page puts in one.</summary>
     /// <exception cref="SlintException">The source doesn't compile, such as for an expression with an error.</exception>
     public static Page Create(Element root)
     {
@@ -129,12 +129,11 @@ public sealed class Page : IDisposable
         Instance.Dispose();
     }
 
-    private static object? Convert(SlintType? type, object? value) => type switch
-    {
-        SlintType.Length or SlintType.Float => System.Convert.ToDouble(value, CultureInfo.InvariantCulture),
-        SlintType.Int => System.Convert.ToInt32(value, CultureInfo.InvariantCulture),
-        _ => value,
-    };
+    private static object? Convert(SlintType? type, object? value) =>
+        type == SlintType.Length || type == SlintType.Float || type == SlintType.Angle
+            ? System.Convert.ToDouble(value, CultureInfo.InvariantCulture)
+            : type == SlintType.Int ? System.Convert.ToInt32(value, CultureInfo.InvariantCulture)
+            : value;
 
     private static bool Same(object? a, object? b) => (a, b) switch
     {

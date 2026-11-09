@@ -33,8 +33,11 @@ pub struct Config {
     /// Run the unit that the assembly embeds as `slint-unit:` and the runtime path, from [`unit::compile()`],
     /// instead of compiling the input at startup, unless the unit doesn't apply.
     pub unit: bool,
+    /// Generate the builders of `Slint.Markup` instead, from [`markup::generate()`].
+    pub markup: bool,
 }
 
+pub mod markup;
 #[cfg(feature = "serde")]
 pub mod unit;
 
@@ -579,6 +582,9 @@ pub fn generate(
     config: &Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<String> {
+    if config.markup {
+        return Ok(markup::generate(doc, config));
+    }
     let unit = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
     let main_file = doc
         .node

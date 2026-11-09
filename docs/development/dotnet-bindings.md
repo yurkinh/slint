@@ -963,10 +963,24 @@ Next:
       - Found: `Window` clashes with `Slint.Window` in code that uses both namespaces;
         a page compiles without an edition, so the compiler says so;
         and `\{` in a string starts an interpolation, so only `"` and `\` need escaping.
-    - Phase 1, 1 week: builders generated from the compiler's built-in elements and the standard widgets,
-      with overloads for a value, a lambda, and an `Expr`, typed callback arguments, enums, and a name for the window that doesn't clash.
+    - Phase 1, done on 2026-11-09: `slint-compiler -f csharp --csharp-markup` generates the builders,
+      and `Slint.Markup.csproj` runs it on `widgets.slint` with `<SlintFile Markup="true" />` of `Slint.targets`.
+      - A builder for each built-in element that isn't internal, global, or a non-item, and for each component that the input imports.
+        The input imports the standard widgets rather than exporting them, since an exported popup would have to be a top-level component.
+      - `Element<TSelf>` gets the properties of every element, such as `Width`, `Opacity`, `Row`, and `Col`.
+      - Each property that C# can set has overloads for a value, a lambda, and an `Expr`,
+        and an `in-out` one also for a getter and a setter.
+        Strings, numbers, lengths, colors, brushes, durations, and angles become literals;
+        images and enums become properties that C# sets once, through the enum conversions of the generated code.
+      - Each callback without a return value gets `On…` with typed arguments, or without arguments when one has no C# type,
+        such as a `PointerEvent`, and an overload for a `RowAction`.
+      - Names that clash with the `Slint` namespace get a suffix, such as `WindowElement`, `ImageElement`, and `StyledTextElement`,
+        and a test checks that no type of `Slint.Markup` clashes.
+      - The documentation comments of the built-in elements become the summaries.
+      - The todo example uses the generated builders, with its layout fixed through `Alignment` and `HorizontalStretch`.
     - Phase 2, 1 week: a disk cache of compiled pages, with `llr::bundle` of item 27, for the first page of a process;
       the edition; and hot reload, where `Page.Create(Func<Element>)` builds the tree again after a metadata update.
+      Also documentation comments for the properties of the widgets, which only the built-in elements have now.
     - Phase 3, 3–4 days: `.slint` components as elements, `GridLayout` rows and columns, nested structs in rows,
       and two-way bindings in rows.
   - The front end like [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), 2–3 weeks:

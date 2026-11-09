@@ -187,6 +187,12 @@ struct Cli {
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-unit", name = "unit file")]
     csharp_unit: Option<std::path::PathBuf>,
+
+    /// Generate the builders of Slint.Markup, for UI written in C#: one class for each built-in element,
+    /// and each component that the input imports, such as the standard widgets.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-markup")]
+    csharp_markup: bool,
 }
 
 /// Parses the file to compile, the main file of a project directory given as input,
@@ -280,6 +286,8 @@ fn main() -> std::io::Result<()> {
         reject(args.csharp_live_preview, "--csharp-live-preview");
         #[cfg(feature = "csharp")]
         reject(args.csharp_unit.is_some(), "--csharp-unit");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_markup, "--csharp-markup");
     }
 
     #[allow(unused_mut)]
@@ -342,6 +350,7 @@ fn main() -> std::io::Result<()> {
         || args.csharp_runtime_path.is_some()
         || args.csharp_live_preview
         || args.csharp_unit.is_some()
+        || args.csharp_markup
     {
         match &mut format {
             generator::OutputFormat::CSharp(config) => {
@@ -349,6 +358,7 @@ fn main() -> std::io::Result<()> {
                 config.runtime_path = args.csharp_runtime_path.clone();
                 config.live_preview = args.csharp_live_preview;
                 config.unit = args.csharp_unit.is_some();
+                config.markup = args.csharp_markup;
             }
             _ => {
                 eprintln!("C# options were set but the output format is not C# - ignoring");

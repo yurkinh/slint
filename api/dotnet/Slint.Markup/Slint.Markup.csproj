@@ -7,7 +7,16 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+  <PropertyGroup>
+    <SlintCopyToOutput>false</SlintCopyToOutput>
+    <SlintPrecompile>false</SlintPrecompile>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Slint/Slint.csproj" />
   </ItemGroup>
+  <!-- The builders, generated from the built-in elements and the widgets that widgets.slint imports. -->
+  <ItemGroup>
+    <SlintFile Include="widgets.slint" Markup="true" />
+  </ItemGroup>
+  <Import Project="../Slint/build/Slint.targets" />
 </Project>

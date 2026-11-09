@@ -52,9 +52,9 @@ internal sealed class SourceWriter
 
     public string Write(Element root)
     {
-        if (root is Window window)
+        if (root.Type == "Window" && root.Import == null)
         {
-            WriteContents(window, 1, null);
+            WriteContents(root, 1, null);
         }
         else
         {
@@ -115,7 +115,7 @@ internal sealed class SourceWriter
             _body.Append(indent).Append(property.Name);
             if (property.Get != null)
             {
-                var name = Bind(TypeName(property.Type), property.Type, property.Get, property.Set);
+                var name = Bind(property.Type.Name, property.Type, property.Get, property.Set);
                 _body.Append(property.Set != null ? " <=> root." : ": root.").Append(name);
             }
             else if (property.Value is Expr expression)
@@ -133,7 +133,7 @@ internal sealed class SourceWriter
         {
             var name = $"c{Slots.Count}";
             var parameters = callback.Parameters.Select((_, i) => $"a{i}").ToList();
-            var types = callback.Parameters.Select(TypeName).ToList();
+            var types = callback.Parameters.Select(p => p.Name).ToList();
             if (callback.Row != null)
             {
                 if (rowIndex == null)
@@ -177,25 +177,16 @@ internal sealed class SourceWriter
             ? element.Children[0]
             : throw new InvalidOperationException("An If needs exactly one child; put several in a layout");
 
-    private static string TypeName(SlintType type) => type switch
+    private static string Literal(SlintType type, object value) => value switch
     {
-        SlintType.String => "string",
-        SlintType.Length => "length",
-        SlintType.Float => "float",
-        SlintType.Int => "int",
-        SlintType.Bool => "bool",
-        SlintType.Brush => "brush",
-        _ => throw new ArgumentOutOfRangeException(nameof(type)),
-    };
-
-    private static string Literal(SlintType type, object value) => type switch
-    {
-        SlintType.String => Quote((string)value),
-        SlintType.Length => Number(value) + "px",
-        SlintType.Float or SlintType.Int => Number(value),
-        SlintType.Bool => (bool)value ? "true" : "false",
-        SlintType.Brush when value is Color c => $"#{c.Red:x2}{c.Green:x2}{c.Blue:x2}{c.Alpha:x2}",
-        _ => throw new ArgumentException($"{value} isn't a {type}"),
+        string text when type == SlintType.String => Quote(text),
+        bool b when type == SlintType.Bool => b ? "true" : "false",
+        Color c when type == SlintType.Color || type == SlintType.Brush => $"#{c.Red:x2}{c.Green:x2}{c.Blue:x2}{c.Alpha:x2}",
+        TimeSpan d when type == SlintType.Duration => Number(d.TotalMilliseconds) + "ms",
+        _ when type == SlintType.Length => Number(value) + "px",
+        _ when type == SlintType.Angle => Number(value) + "deg",
+        _ when type == SlintType.Float || type == SlintType.Int => Number(value),
+        _ => throw new ArgumentException($"{value} isn't a {type.Name}"),
     };
 
     private static string Number(object value) => Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture);

@@ -45,6 +45,9 @@
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
                         Not on Android and iOS, where the source directory isn't on the device; the build warns with SLINT002.
+
+  Markup="true" on a SlintFile generates the builders of Slint.Markup instead, for the built-in elements
+  and the components that the file imports.
 -->
 <Project>
   <PropertyGroup>
@@ -143,6 +146,7 @@
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintAssigned.FullPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintEmbed)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintAssigned.FullPath)').Replace('\', '/'))</RuntimePath>
         <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
+        <MarkupOption Condition="'%(_SlintAssigned.Markup)' == 'true'"> --csharp-markup</MarkupOption>
       </_SlintGenerate>
     </ItemGroup>
     <ItemGroup Condition="'@(SlintProject)' != ''">
@@ -188,7 +192,7 @@
       <_SlintGenerate Condition="'%(_SlintGenerate.IsProject)' != 'true'">
         <PathOptions>$(_SlintPathOptions)</PathOptions>
       </_SlintGenerate>
-      <_SlintGenerate Condition="'$(SlintPrecompile)' == 'true' and '%(_SlintGenerate.LiveOption)' == ''">
+      <_SlintGenerate Condition="'$(SlintPrecompile)' == 'true' and '%(_SlintGenerate.LiveOption)' == '' and '%(_SlintGenerate.MarkupOption)' == ''">
         <UnitFile>%(GeneratedFile).unit</UnitFile>
         <UnitOption> --csharp-unit &quot;%(GeneratedFile).unit&quot;</UnitOption>
       </_SlintGenerate>
@@ -198,7 +202,7 @@
              Condition="'$(_SlintLiveAllowed)' != 'true' and ('$(SlintLivePreview)' == 'true' or '@(SlintFile->WithMetadataValue('LivePreview', 'true'))' != '' or '@(SlintProject->WithMetadataValue('LivePreview', 'true'))' != '')" />
     <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
     <MakeDir Directories="$(_SlintGeneratedDir)" />
-    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)%(UnitOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)%(UnitOption)%(MarkupOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
   </Target>
 
   <Target Name="SlintGenerate"
@@ -208,7 +212,7 @@
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
     <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
-    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)%(_SlintGenerate.DependencyOption)%(_SlintGenerate.UnitOption)" />
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)%(_SlintGenerate.DependencyOption)%(_SlintGenerate.UnitOption)%(_SlintGenerate.MarkupOption)" />
     <!-- slint-compiler leaves an output that didn't change as it is, which would keep it older than the inputs. -->
     <Touch Files="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(UnitFile)')" />
   </Target>

@@ -79,7 +79,7 @@ public sealed class MarkupTests
     {
         var name = "Ada";
         var accepted = "";
-        using var page = Page.Create(new Slint.Markup.Window
+        using var page = Page.Create(new WindowElement
         {
             new VerticalLayout
             {
@@ -147,4 +147,62 @@ public sealed class MarkupTests
         StringAssert.Contains(error.Message, "no-such-thing");
         StringAssert.Contains(error.Message, "export component MarkupPage");
     });
+
+    [TestMethod]
+    public void SetsEnumsUnitsAndTheMembersOfEveryElement() => SlintThread.Run(() =>
+    {
+        var alignment = TextHorizontalAlignment.Left;
+        using var page = Page.Create(new VerticalLayout
+        {
+            new Text("Centered").HorizontalAlignment(() => alignment).Opacity(0.5).Width(120),
+            new Rectangle().Background(new Color(255, 0, 0)).TransformRotation(45).Height(10),
+        });
+
+        StringAssert.Contains(page.Source, "in property <TextHorizontalAlignment> p0;");
+        StringAssert.Contains(page.Source, "opacity: 0.5;");
+        StringAssert.Contains(page.Source, "width: 120px;");
+        StringAssert.Contains(page.Source, "background: #ff0000ff;");
+        StringAssert.Contains(page.Source, "transform-rotation: 45deg;");
+        Assert.AreEqual(new EnumValue("TextHorizontalAlignment", "left"), page.Instance.GetProperty("p0"));
+        alignment = TextHorizontalAlignment.Center;
+        page.Update();
+        Assert.AreEqual(new EnumValue("TextHorizontalAlignment", "center"), page.Instance.GetProperty("p0"));
+    });
+
+    [TestMethod]
+    public void PassesTypedCallbackArgumentsAndBindsWidgetsBothWays() => SlintThread.Run(() =>
+    {
+        var volume = 20.0;
+        var changes = new List<double>();
+        var touched = 0;
+        using var page = Page.Create(new VerticalBox
+        {
+            new Slider().Maximum(100).Value(() => volume, v => volume = v).OnChanged(changes.Add),
+            // pointer-event passes a struct that the builders have no C# type for, so the handler gets no arguments.
+            new TouchArea().OnPointerEvent(() => touched++),
+        });
+
+        StringAssert.Contains(page.Source, "value <=> root.p0;");
+        StringAssert.Contains(page.Source, "changed(a0) => { root.c0(a0); }");
+        StringAssert.Contains(page.Source, "pointer-event => { root.c1(); }");
+
+        page.Instance.SetProperty("p0", 75.0);
+        Testing.MockElapsedTime(0);
+        Assert.AreEqual(75.0, volume);
+
+        page.Instance.Invoke("c0", 42.5);
+        CollectionAssert.AreEqual(new[] { 42.5 }, changes);
+        page.Instance.Invoke("c1");
+        Assert.AreEqual(1, touched);
+    });
+
+    [TestMethod]
+    public void HasNoTypeNamedLikeATypeOfTheSlintNamespace()
+    {
+        var slint = typeof(ComponentInstance).Assembly.GetExportedTypes()
+            .Where(t => t.Namespace == "Slint").Select(t => t.Name).ToHashSet();
+        var clashes = typeof(Page).Assembly.GetExportedTypes()
+            .Where(t => t.Namespace == "Slint.Markup" && slint.Contains(t.Name)).Select(t => t.Name).ToList();
+        Assert.IsEmpty(clashes, string.Join(", ", clashes));
+    }
 }
