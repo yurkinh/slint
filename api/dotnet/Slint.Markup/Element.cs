@@ -8,13 +8,17 @@ namespace Slint.Markup;
 /// <summary>The type of a property in <c>.slint</c> code, which decides how C# values become <c>.slint</c> values.</summary>
 public sealed class SlintType
 {
-    private SlintType(string name, bool literal)
+    private SlintType(string name, bool literal, string? import = null)
     {
         Name = name;
         HasLiteral = literal;
+        Import = import;
     }
 
     internal string Name { get; }
+
+    /// <summary>The file that a page imports the type from, for an enum of an application's <c>.slint</c> file.</summary>
+    internal string? Import { get; }
 
     /// <summary>Whether a value of this type has a <c>.slint</c> literal; others become properties that C# sets once.</summary>
     internal bool HasLiteral { get; }
@@ -40,8 +44,11 @@ public sealed class SlintType
     /// <summary><c>image</c>, from a <see cref="Slint.Image"/></summary>
     public static SlintType Image { get; } = new("image", false);
 
-    /// <summary>The enum <paramref name="name"/>, from a C# enum that the builders generate.</summary>
-    public static SlintType Enum(string name) => new(name, false);
+    /// <summary>
+    /// The enum <paramref name="name"/>, from a C# enum that the builders generate,
+    /// which a page imports from <paramref name="import"/> unless it's built in.
+    /// </summary>
+    public static SlintType Enum(string name, string? import = null) => new(name, false, import);
 }
 
 /// <summary>A <c>.slint</c> expression, such as <c>parent.width / 2</c>, for what the builders don't cover.</summary>
@@ -67,6 +74,13 @@ public abstract partial class Element : IEnumerable<Element>
 
     internal string Type { get; }
     internal string? Import { get; }
+
+    /// <summary>
+    /// The path of <paramref name="path"/> in the application's directory, which the generated builders of an application's
+    /// <c>.slint</c> files import their components from.
+    /// </summary>
+    public static string ApplicationFile(string path) =>
+        Path.Combine(AppContext.BaseDirectory, path).Replace('\\', '/');
 
     /// <summary>Adds a child.</summary>
     public void Add(Element child) => Children.Add(child);
@@ -95,6 +109,13 @@ public abstract partial class Element : IEnumerable<Element>
     protected void SetExpression(string name, SlintType type, Expr expression) =>
         Properties.Add(new PropertyValue(name, type, expression, null, null));
 
+    /// <summary>
+    /// Sets the property <paramref name="name"/> to a field of the row of a <see cref="ForEach{T}"/>,
+    /// and passes the changes of the UI to the binding.
+    /// </summary>
+    protected void SetRowBinding(string name, SlintType type, RowBinding binding) =>
+        Properties.Add(new PropertyValue(name, type, binding.Expression, null, null) { Row = binding });
+
     /// <summary>Handles the callback <paramref name="name"/>, whose arguments have the types <paramref name="parameters"/>.</summary>
     protected void SetHandler(string name, SlintType[] parameters, Action<object?[]> handler) =>
         Callbacks.Add(new CallbackHandler(name, parameters, handler, null));
@@ -103,7 +124,10 @@ public abstract partial class Element : IEnumerable<Element>
     protected void SetHandler(string name, RowAction handler) =>
         Callbacks.Add(new CallbackHandler(name, [], _ => { }, handler));
 
-    internal sealed record PropertyValue(string Name, SlintType Type, object? Value, Func<object?>? Get, Action<object?>? Set);
+    internal sealed record PropertyValue(string Name, SlintType Type, object? Value, Func<object?>? Get, Action<object?>? Set)
+    {
+        public RowBinding? Row { get; init; }
+    }
 
     internal sealed record CallbackHandler(string Name, SlintType[] Parameters, Action<object?[]> Handler, RowAction? Row);
 }

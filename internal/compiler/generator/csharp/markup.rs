@@ -8,12 +8,13 @@ use super::{Config, ident, string_literal, write_enum};
 use crate::element_type::{ElementDocEntry, ElementType, PropertyLookupMode};
 use crate::langtype::{Enumeration, Type};
 use crate::native_class::PropertyVisibility;
-use crate::object_tree::Document;
+use crate::object_tree::{Component, Document};
 use crate::typeregister::reserved_properties;
 use itertools::Itertools;
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// The public types of the `Slint` namespace that a builder would hide in code that uses both namespaces.
@@ -58,8 +59,28 @@ struct Mapped {
     slint: String,
 }
 
+/// The enums that the builders use: in the library all of them, in an app only its own,
+/// since the built-in ones are the library's.
+struct Enums {
+    builtins: bool,
+    generate: BTreeMap<SmolStr, Arc<Enumeration>>,
+    /// The C# expression of the file that a page imports the enums of the input from.
+    import: String,
+}
+
+impl Enums {
+    fn csharp(&mut self, e: &Arc<Enumeration>) -> String {
+        let is_builtin = e.node.is_none();
+        if is_builtin && !self.builtins {
+            return format!("global::Slint.Markup.{}", enum_name(&e.name));
+        }
+        self.generate.insert(e.name.clone(), e.clone());
+        enum_name(&e.name)
+    }
+}
+
 /// The C# side of `ty`, or `None` for a type that the builders leave to `Expr`.
-fn map_type(ty: &Type, enums: &mut BTreeMap<SmolStr, Arc<Enumeration>>) -> Option<Mapped> {
+fn map_type(ty: &Type, enums: &mut Enums) -> Option<Mapped> {
     let (csharp, slint) = match ty {
         Type::String => ("string".into(), "String".into()),
         Type::Int32 => ("int".into(), "Int".into()),
@@ -72,8 +93,9 @@ fn map_type(ty: &Type, enums: &mut BTreeMap<SmolStr, Arc<Enumeration>>) -> Optio
         Type::Angle => ("double".into(), "Angle".into()),
         Type::Image => ("global::Slint.Image".into(), "Image".into()),
         Type::Enumeration(e) => {
-            enums.insert(e.name.clone(), e.clone());
-            (enum_name(&e.name), format!("Enum({})", string_literal(&e.name)))
+            let import =
+                if e.node.is_some() { format!(", {}", enums.import) } else { String::new() };
+            (enums.csharp(e), format!("Enum({}{import})", string_literal(&e.name)))
         }
         _ => return None,
     };
@@ -114,12 +136,7 @@ struct Member {
 }
 
 /// Writes the builder methods of `members` into `out`, for the class `this`.
-fn write_members(
-    out: &mut String,
-    this: &str,
-    members: &[Member],
-    enums: &mut BTreeMap<SmolStr, Arc<Enumeration>>,
-) {
+fn write_members(out: &mut String, this: &str, members: &[Member], enums: &mut Enums) {
     let mut used = BTreeSet::new();
     for member in members {
         let mut method = ident(&member.name);
@@ -201,10 +218,51 @@ fn write_members(
                         out,
                         "    /// <summary>{doc} Binds it both ways: <paramref name=\"set\"/> receives the changes of the UI.</summary>\n    public {this} {method}(global::System.Func<{csharp}> get, global::System.Action<{csharp}> set) {{ SetBinding({name}, {slint}, () => get(), v => set(global::Slint.Generated.Conversion.FromSlint<{csharp}>(v))); return this; }}"
                     );
+                    let _ = writeln!(
+                        out,
+                        "    /// <summary>{doc} From a field of the row of a ForEach, which receives the changes of the UI.</summary>\n    public {this} {method}(global::Slint.Markup.RowBinding<{csharp}> value) {{ SetRowBinding({name}, {slint}, value); return this; }}"
+                    );
                 }
             }
         }
     }
+}
+
+/// The members of a component of the input, without the ones that every element has.
+/// The compiler turns an exported component into a window, so its members come from the base
+/// that the source names, and from its own public declarations.
+fn exported_members(
+    component: &Rc<Component>,
+    doc: &Document,
+    common: &BTreeSet<SmolStr>,
+) -> Vec<Member> {
+    let base =
+        component.node.as_ref().and_then(|node| node.Element().QualifiedName()).and_then(|name| {
+            doc.local_registry.lookup_element(name.text().to_string().trim()).ok()
+        });
+    let root = component.root_element.borrow();
+    let own = root
+        .property_declarations
+        .iter()
+        .filter(|(_, d)| d.visibility != PropertyVisibility::Private)
+        .map(|(k, d)| Member {
+            name: d.declared_name(k).clone(),
+            ty: d.property_type.clone(),
+            visibility: d.visibility,
+            docs: None,
+        });
+    let inherited = base.iter().flat_map(|base| {
+        base.property_list().into_iter().map(move |(name, ty)| {
+            let visibility =
+                base.lookup_property(&name, PropertyLookupMode::FromOutside).property_visibility;
+            Member { name, ty, visibility, docs: None }
+        })
+    });
+    own.chain(inherited.collect::<Vec<_>>())
+        .filter(|m| !common.contains(&m.name))
+        .unique_by(|m| m.name.clone())
+        .sorted_by(|a, b| a.name.cmp(&b.name))
+        .collect()
 }
 
 /// The members of an element type, without the ones that every element has.
@@ -228,20 +286,22 @@ fn members(ty: &ElementType, common: &BTreeSet<SmolStr>) -> Vec<Member> {
         .collect()
 }
 
+/// Writes the builder of `slint_name`, which the page imports from the file of the C# expression `import`,
+/// or from nowhere for a built-in element; `extra` goes at the start of the class.
 fn write_class(
     out: &mut String,
     slint_name: &str,
-    import: Option<&str>,
+    import: &str,
     docs: Option<&str>,
     members: &[Member],
-    enums: &mut BTreeMap<SmolStr, Arc<Enumeration>>,
+    enums: &mut Enums,
+    extra: &str,
 ) {
     let class = class_name(slint_name);
-    let import = import.map_or("null".to_string(), string_literal);
     let element = string_literal(slint_name);
     let _ = writeln!(
         out,
-        "/// <summary>{}</summary>\npublic sealed partial class {class} : global::Slint.Markup.Element<{class}>\n{{",
+        "/// <summary>{}</summary>\npublic sealed partial class {class} : global::Slint.Markup.Element<{class}>\n{{{extra}",
         summary(docs, &format!("The `{slint_name}` element."))
     );
     let _ = writeln!(
@@ -272,9 +332,20 @@ fn write_class(
     let _ = writeln!(out, "}}\n");
 }
 
-/// Returns the C# code of the builders: the built-in elements, and the components that `doc` imports.
+/// Returns the C# code of the builders of the components that `doc` exports;
+/// with [`Config::markup_builtins`], those of the built-in elements and the components that `doc` imports instead,
+/// with the base class of the builders.
 pub fn generate(doc: &Document, config: &Config) -> String {
-    let mut enums = BTreeMap::new();
+    // The page imports the components and enums of an application's file from its copy in the application's directory.
+    let import = format!(
+        "global::Slint.Markup.Element.ApplicationFile({})",
+        string_literal(config.runtime_path.as_deref().unwrap_or_default())
+    );
+    let mut enums = Enums {
+        builtins: config.markup_builtins,
+        generate: BTreeMap::new(),
+        import: import.clone(),
+    };
     let mut types = String::new();
 
     // The members of every element go into the base class.
@@ -283,72 +354,93 @@ pub fn generate(doc: &Document, config: &Config) -> String {
         .sorted_by(|a, b| a.name.cmp(&b.name))
         .collect::<Vec<_>>();
     let common = common_members.iter().map(|m| m.name.clone()).collect::<BTreeSet<_>>();
-    let _ = writeln!(
-        types,
-        "/// <summary>The base of the builders, with the properties that every element has.</summary>\npublic abstract partial class Element<TSelf> where TSelf : Element<TSelf>\n{{"
-    );
-    write_members(&mut types, "TSelf", &common_members, &mut enums);
-    let _ = writeln!(types, "}}\n");
-    // The generic base returns `TSelf`; the methods cast once.
-    types = types.replace("return this; }", "return (TSelf)this; }");
 
-    let builtins = doc
-        .local_registry
-        .all_elements()
-        .into_iter()
-        .filter_map(|(name, ty)| match &ty {
-            ElementType::Builtin(b)
-                if !b.is_internal && !b.is_global && !b.is_non_item_type && name == b.name =>
-            {
-                Some((name, ty))
-            }
-            _ => None,
-        })
-        .sorted_by(|a, b| a.0.cmp(&b.0))
-        .collect::<Vec<_>>();
-    for (name, ty) in &builtins {
-        let ElementType::Builtin(b) = ty else { continue };
-        let docs = b.docs.iter().find_map(|d| match d {
-            ElementDocEntry::Text(t) => Some(t.as_str()),
-            _ => None,
-        });
-        write_class(&mut types, name, None, docs, &members(ty, &common), &mut enums);
-    }
+    if config.markup_builtins {
+        let _ = writeln!(
+            types,
+            "/// <summary>The base of the builders, with the properties that every element has.</summary>\npublic abstract partial class Element<TSelf> where TSelf : Element<TSelf>\n{{"
+        );
+        write_members(&mut types, "TSelf", &common_members, &mut enums);
+        let _ = writeln!(types, "}}\n");
+        // The generic base returns `TSelf`; the methods cast once.
+        types = types.replace("return this; }", "return (TSelf)this; }");
 
-    // The components that the input imports, such as the standard widgets.
-    // Exporting them instead would make each a top-level component, which a popup can't be.
-    let own_file = config.runtime_path.clone().unwrap_or_default();
-    let components = doc
-        .local_registry
-        .all_elements()
-        .into_iter()
-        .filter_map(|(name, ty)| match &ty {
-            ElementType::Component(c)
-                if !c.is_global()
-                    && c.node.as_ref().is_none_or(|n| {
-                        Some(n.source_file.path())
-                            != doc.node.as_ref().map(|d| d.source_file.path())
-                    }) =>
-            {
-                Some((name, c.clone(), ty))
-            }
-            _ => None,
-        })
-        .sorted_by(|a, b| a.0.cmp(&b.0))
-        .collect::<Vec<_>>();
-    for (name, component, ty) in &components {
-        // The standard widgets come from the style's library, whatever file imports them.
-        let from_style = component.node.as_ref().is_some_and(|n| n.source_file.path().is_builtin());
-        let import = if from_style { "std-widgets.slint" } else { own_file.as_str() };
-        write_class(&mut types, name, Some(import), None, &members(ty, &common), &mut enums);
+        let builtins = doc
+            .local_registry
+            .all_elements()
+            .into_iter()
+            .filter_map(|(name, ty)| match &ty {
+                ElementType::Builtin(b)
+                    if !b.is_internal && !b.is_global && !b.is_non_item_type && name == b.name =>
+                {
+                    Some((name, ty))
+                }
+                _ => None,
+            })
+            .sorted_by(|a, b| a.0.cmp(&b.0))
+            .collect::<Vec<_>>();
+        for (name, ty) in &builtins {
+            let ElementType::Builtin(b) = ty else { continue };
+            let docs = b.docs.iter().find_map(|d| match d {
+                ElementDocEntry::Text(t) => Some(t.as_str()),
+                _ => None,
+            });
+            write_class(&mut types, name, "null", docs, &members(ty, &common), &mut enums, "");
+        }
+
+        // The components that the input imports, such as the standard widgets.
+        // Exporting them instead would make each a top-level component, which a popup can't be.
+        let components = doc
+            .local_registry
+            .all_elements()
+            .into_iter()
+            .filter_map(|(name, ty)| match &ty {
+                ElementType::Component(c)
+                    if !c.is_global()
+                        && c.node.as_ref().is_some_and(|n| n.source_file.path().is_builtin()) =>
+                {
+                    Some((name, ty))
+                }
+                _ => None,
+            })
+            .sorted_by(|a, b| a.0.cmp(&b.0))
+            .collect::<Vec<_>>();
+        for (name, ty) in &components {
+            let import = string_literal("std-widgets.slint");
+            write_class(&mut types, name, &import, None, &members(ty, &common), &mut enums, "");
+        }
+    } else {
+        let components = doc
+            .exports
+            .iter()
+            .filter_map(|(export, c)| {
+                c.as_ref().left().filter(|c| !c.is_global()).map(|c| (export, c))
+            })
+            .collect::<Vec<_>>();
+        for (export, component) in components {
+            // Each builder registers the enums of this file before its first use.
+            let registration = format!(
+                "\n    static {}() => MarkupEnums.Register();",
+                class_name(export.as_str())
+            );
+            write_class(
+                &mut types,
+                export.as_str(),
+                &import,
+                None,
+                &exported_members(component, doc, &common),
+                &mut enums,
+                &registration,
+            );
+        }
     }
 
     let mut registrations = String::new();
-    for e in enums.values() {
+    for e in enums.generate.values() {
         write_enum(&mut types, e, &mut registrations);
     }
     // write_enum names the enum after Slint; a renamed one keeps its C# name.
-    for e in enums.values() {
+    for e in enums.generate.values() {
         let slint = ident(&e.name);
         let csharp = enum_name(&e.name);
         if slint != csharp {
@@ -365,10 +457,17 @@ pub fn generate(doc: &Document, config: &Config) -> String {
         out,
         "// <auto-generated>\n// Generated by slint-compiler -f csharp --csharp-markup. Don't edit.\n// </auto-generated>\n#nullable enable\n#pragma warning disable CS1591\n\nnamespace {namespace};\n"
     );
-    let _ = writeln!(
-        out,
-        "public abstract partial class Element\n{{\n    static Element()\n    {{\n{registrations}    }}\n}}\n"
-    );
+    if config.markup_builtins {
+        let _ = writeln!(
+            out,
+            "public abstract partial class Element\n{{\n    static Element()\n    {{\n{registrations}    }}\n}}\n"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "file static class MarkupEnums\n{{\n    private static bool s_registered;\n\n    internal static void Register()\n    {{\n        if (s_registered)\n        {{\n            return;\n        }}\n        s_registered = true;\n{registrations}    }}\n}}\n"
+        );
+    }
     out.push_str(&types);
     out
 }

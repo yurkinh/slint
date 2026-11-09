@@ -14,6 +14,12 @@ public sealed class MarkupTests
 
     private sealed record Todo(string Title, bool Done);
 
+    private sealed record Address(string City);
+
+    private sealed record Person(string Name, Address Home);
+
+    private sealed record Task(string Title, bool Done, Person Owner, TextHorizontalAlignment Alignment);
+
     private static Element Counter(Func<int> count, Action add) =>
         new VerticalBox
         {
@@ -290,4 +296,85 @@ public sealed class MarkupTests
             .Where(t => t.Namespace == "Slint.Markup" && slint.Contains(t.Name)).Select(t => t.Name).ToList();
         Assert.IsEmpty(clashes, string.Join(", ", clashes));
     }
+
+    [TestMethod]
+    public void UsesComponentsOfTheApplicationsSlintFiles() => SlintThread.Run(() =>
+    {
+        var tone = CardTone.Plain;
+        var opened = new List<string>();
+        var expanded = false;
+        using var page = Page.Create(new VerticalLayout
+        {
+            new MarkupCard().Title("Report").Tone(() => tone).TitleAlignment(TextHorizontalAlignment.Center)
+                .Expanded(() => expanded, value => expanded = value).OnOpened(opened.Add).BorderRadius(4),
+        });
+
+        StringAssert.Contains(page.Source, $"import {{ CardTone, MarkupCard }} from \"{Element.ApplicationFile("ui/markup-card.slint")}\";");
+        StringAssert.Contains(page.Source, "in property <CardTone> p0;");
+        StringAssert.Contains(page.Source, "border-radius: 4px;");
+        Assert.AreEqual(new EnumValue("CardTone", "plain"), page.Instance.GetProperty("p0"));
+        tone = CardTone.Highlighted;
+        page.Update();
+        Assert.AreEqual(new EnumValue("CardTone", "highlighted"), page.Instance.GetProperty("p0"));
+
+        page.Instance.SetProperty("p2", true);
+        Testing.MockElapsedTime(0);
+        Assert.IsTrue(expanded);
+        page.Instance.Invoke("c0", "Report");
+        CollectionAssert.AreEqual(new[] { "Report" }, opened);
+    });
+
+    [TestMethod]
+    public void PlacesChildrenInGridRows() => SlintThread.Run(() =>
+    {
+        using var page = Page.Create(new GridLayout
+        {
+            new GridRow { new Text("Name"), new Text("Value") },
+            new GridRow { new Text("Total").Col(1) },
+        });
+        StringAssert.Contains(page.Source, "Row {");
+        StringAssert.Contains(page.Source, "col: 1;");
+    });
+
+    [TestMethod]
+    public void BindsNestedFieldsOfRowsBothWays() => SlintThread.Run(() =>
+    {
+        var tasks = new List<Task>
+        {
+            new("Write", false, new Person("Ada", new Address("London")), TextHorizontalAlignment.Left),
+            new("Test", true, new Person("Grace", new Address("Arlington")), TextHorizontalAlignment.Right),
+        };
+        using var page = Page.Create(new VerticalLayout
+        {
+            new ForEach<Task>(() => tasks, row => new HorizontalLayout
+            {
+                new CheckBox(row.Get(t => t.Title))
+                    .Checked(row.Bind(t => t.Done, (task, done) => tasks[tasks.IndexOf(task)] = task with { Done = done })),
+                new Text(row.Get(t => t.Owner.Home.City)).HorizontalAlignment(row.Get(t => t.Alignment)),
+            }),
+        });
+
+        StringAssert.Contains(page.Source,
+            "in property <[{title: string, done: bool, owner: {name: string, home: {city: string}}, alignment: TextHorizontalAlignment}]> p0;");
+        StringAssert.Contains(page.Source, "text: row0.owner.home.city;");
+        StringAssert.Contains(page.Source, "changed checked => { root.c0(index0, self.checked); }");
+
+        page.Instance.Invoke("c0", 0, true);
+        Assert.IsTrue(tasks[0].Done);
+        var first = (Struct)((Model<object?>)page.Instance.GetProperty("p0")!).RowData(0)!;
+        Assert.IsTrue((bool)first["done"]!);
+    });
+
+    [TestMethod]
+    public void RejectsARowBindingOutsideAForEach() => SlintThread.Run(() =>
+    {
+        RowBinding<bool>? done = null;
+        using (Page.Create(new ForEach<Todo>(() => [], row =>
+        {
+            done = row.Bind(t => t.Done, (_, _) => { });
+            return new Text("");
+        }))) { }
+        var error = Assert.ThrowsExactly<InvalidOperationException>(() => Page.Create(new CheckBox("Done").Checked(done!)));
+        StringAssert.Contains(error.Message, "ForEach");
+    });
 }

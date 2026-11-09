@@ -78,6 +78,7 @@ fn generate(
         live_preview: false,
         unit: true,
         markup: false,
+        markup_builtins: false,
     });
     let mut config = CompilerConfiguration::new(format.clone());
     config.style = Some(STYLE.into());

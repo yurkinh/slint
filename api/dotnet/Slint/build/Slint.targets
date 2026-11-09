@@ -46,8 +46,9 @@
                         LivePreview metadata on a SlintFile overrides it for that file.
                         Not on Android and iOS, where the source directory isn't on the device; the build warns with SLINT002.
 
-  Markup="true" on a SlintFile generates the builders of Slint.Markup instead, for the built-in elements
-  and the components that the file imports.
+  Markup="true" on a SlintFile generates builders of Slint.Markup for the components that the file exports, instead of
+  the classes that create them; the build still copies the file to the output, where the pages import it from.
+  Markup="builtins" generates the builders of Slint.Markup itself.
 -->
 <Project>
   <PropertyGroup>
@@ -147,6 +148,7 @@
         <RuntimePath Condition="'$(_SlintEmbed)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintAssigned.FullPath)').Replace('\', '/'))</RuntimePath>
         <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
         <MarkupOption Condition="'%(_SlintAssigned.Markup)' == 'true'"> --csharp-markup</MarkupOption>
+        <MarkupOption Condition="'%(_SlintAssigned.Markup)' == 'builtins'"> --csharp-markup --csharp-markup-builtins</MarkupOption>
       </_SlintGenerate>
     </ItemGroup>
     <ItemGroup Condition="'@(SlintProject)' != ''">

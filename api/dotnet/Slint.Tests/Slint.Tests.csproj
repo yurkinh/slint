@@ -29,6 +29,7 @@
     <SlintFile Include="ui/form-view.slint" />
     <SlintFile Include="ui/counter-page.slint" />
     <SlintFile Include="ui/compiled-at-startup.slint" />
+    <SlintFile Include="ui/markup-card.slint" Markup="true" />
     <SlintProject Include="ui/project" />
     <SlintLibraryPath Include="tags" Path="ui/lib/" />
   </ItemGroup>

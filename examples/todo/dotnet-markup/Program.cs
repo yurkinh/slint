@@ -32,8 +32,8 @@ Element Render() => new WindowElement
         {
             new ForEach<Todo>(() => todos, row => new HorizontalLayout
             {
-                new CheckBox(row.Get(t => t.Title)).Checked(row.Get(t => t.Done)).HorizontalStretch(1)
-                    .OnToggled(row.Do(todo => todos[todos.IndexOf(todo)] = todo with { Done = !todo.Done })),
+                new CheckBox(row.Get(t => t.Title)).HorizontalStretch(1)
+                    .Checked(row.Bind(t => t.Done, (todo, done) => todos[todos.IndexOf(todo)] = todo with { Done = done })),
                 new Button("Remove").OnClicked(row.Do(todo => todos.Remove(todo))),
             }),
         }.Alignment(LayoutAlignment.Start).VerticalStretch(1),

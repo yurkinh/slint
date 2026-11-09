@@ -998,8 +998,24 @@ Next:
       - Disposing a page hides its window.
       - Not done: documentation comments for the properties of the widgets.
         The widgets have none in their `.slint` files; their documentation is in the pages of the website.
-    - Phase 3, 3–4 days: `.slint` components as elements, `GridLayout` rows and columns, nested structs in rows,
-      and two-way bindings in rows.
+    - Phase 3, done on 2026-11-09:
+      - `<SlintFile Include="ui/card.slint" Markup="true" />` in an application generates builders for the components that the file exports,
+        with `--csharp-markup`, while `Slint.Markup` uses `Markup="builtins"`, which adds `--csharp-markup-builtins`.
+        The compiler keeps every export, with `ComponentSelection::AllExported`, so it doesn't warn about components that aren't windows.
+        It still turns them into windows, so a builder takes its members from the base that the source names and the component's own declarations.
+      - A page imports the components and enums of such a file from its copy in the output directory, through `Element.ApplicationFile`.
+        The name of a cached page includes the size and time of the `.slint` files around the files it imports, so a change of them compiles again.
+      - The enums of the file are generated next to the builders, which register them in a static constructor;
+        the built-in enums are the ones of `Slint.Markup`.
+      - `GridRow` is the `Row` of a `GridLayout`; `Row` and `Col` of every element place a child anywhere.
+      - The items of `ForEach` may have records as properties, which become nested structs, and colors, durations, images, and enums;
+        `row.Get(t => t.Owner.Home.City)` reads a nested field.
+      - `row.Bind(t => t.Done, (item, value) => ...)` binds an `in-out` property to a field of the row,
+        and a `changed` handler passes the user's change to C#.
+        A click on a check box of a row, with the testing backend, sets the item's field.
+      - Limits: a component file works from the output directory only, not with `SlintEmbedFiles`, so not on Android, iOS, or in the browser yet;
+        an enum of an application's file can't be a field of a `ForEach` item, since the page doesn't know the file to import it from;
+        and the same `.slint` file can't have both `Markup="true"` and the usual generated classes.
   - The front end like [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), 2–3 weeks:
     `Component<TState>`, `Render()`, lambdas in the constructors of controls, `SetState`, `Signal<T>`, and `SignalList<T>`.
     A lambda becomes a property, which C# updates after `SetState`.

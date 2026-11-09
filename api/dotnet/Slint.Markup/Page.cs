@@ -47,7 +47,7 @@ public sealed class Page : IDisposable
         _render = render;
         var writer = new SourceWriter();
         Source = writer.Write(root);
-        var (definition, origin, time) = Load(Source);
+        var (definition, origin, time) = Load(Source, writer.ImportedFiles);
         Origin = origin;
         CompileTime = time;
         Instance = definition.Create();
@@ -118,7 +118,7 @@ public sealed class Page : IDisposable
             Attach(writer);
             return;
         }
-        var (definition, origin, time) = Load(source);
+        var (definition, origin, time) = Load(source, writer.ImportedFiles);
         var old = Instance;
         var visible = old.Window.IsVisible;
         var (position, size) = (old.Window.Position, old.Window.Size);
@@ -232,7 +232,7 @@ public sealed class Page : IDisposable
         _watches.Clear();
     }
 
-    private static (ComponentDefinition, PageOrigin, TimeSpan) Load(string source)
+    private static (ComponentDefinition, PageOrigin, TimeSpan) Load(string source, IEnumerable<string> imports)
     {
         if (Memory.TryGetValue(source, out var cached))
         {
@@ -240,7 +240,7 @@ public sealed class Page : IDisposable
         }
         var stopwatch = Stopwatch.StartNew();
         s_compiler ??= new Compiler();
-        var file = CacheDirectory is { } directory ? Path.Combine(directory, Key(source) + ".unit") : null;
+        var file = CacheDirectory is { } directory ? Path.Combine(directory, Key(source, imports) + ".unit") : null;
         var origin = PageOrigin.DiskCache;
         var result = file != null ? ReadCached(file) : null;
         if (result == null)
@@ -269,11 +269,25 @@ public sealed class Page : IDisposable
         return new SlintException("The page doesn't compile:\n" + string.Join("\n", diagnostics) + "\n" + source);
     }
 
-    private static string Key(string source)
+    /// <summary>
+    /// The name of the cache file of <paramref name="source"/>, from what the compiled source depends on:
+    /// the Slint version, the style, the source, and the <c>.slint</c> files around the files it imports,
+    /// which those may import in turn.
+    /// </summary>
+    private static string Key(string source, IEnumerable<string> imports)
     {
         var style = s_compiler!.Style ?? Environment.GetEnvironmentVariable("SLINT_STYLE") ?? "";
         var version = typeof(Compiler).Assembly.GetName().Version;
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{version}\n{style}\n{source}")));
+        var key = new StringBuilder($"{version}\n{style}\n{source}");
+        foreach (var directory in imports.Select(Path.GetDirectoryName).OfType<string>().Distinct().Where(Directory.Exists))
+        {
+            foreach (var file in Directory.EnumerateFiles(directory, "*.slint", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+            {
+                var info = new FileInfo(file);
+                key.Append('\n').Append(file).Append(' ').Append(info.Length).Append(' ').Append(info.LastWriteTimeUtc.Ticks);
+            }
+        }
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key.ToString())));
     }
 
     // The cache is an optimization: a file that can't be read or written means compiling again.

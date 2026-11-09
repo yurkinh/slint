@@ -35,6 +35,9 @@ pub struct Config {
     pub unit: bool,
     /// Generate the builders of `Slint.Markup` instead, from [`markup::generate()`].
     pub markup: bool,
+    /// With [`Config::markup`], generate the builders of `Slint.Markup` itself:
+    /// the built-in elements, the components that the input imports, and the base class.
+    pub markup_builtins: bool,
 }
 
 pub mod markup;

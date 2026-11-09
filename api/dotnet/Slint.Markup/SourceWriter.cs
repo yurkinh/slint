@@ -47,6 +47,9 @@ internal sealed class SourceWriter
     private readonly List<string> _declarations = [];
     private int _rows;
 
+    /// <summary>The files that the source imports, other than the standard widgets.</summary>
+    public IEnumerable<string> ImportedFiles => _widgets.Select(w => w.Split('|')[1]).Where(Path.IsPathRooted).Distinct();
+
     public List<Binding> Bindings { get; } = [];
     public List<Slot> Slots { get; } = [];
 
@@ -121,6 +124,21 @@ internal sealed class SourceWriter
             else if (property.Value is Expr expression)
             {
                 _body.Append(": ").Append(expression.Code);
+                if (property.Row is { } row)
+                {
+                    if (rowIndex == null)
+                    {
+                        throw new InvalidOperationException($"'{property.Name}' is bound to a row's field, so it must be in a ForEach");
+                    }
+                    var slot = $"c{Slots.Count}";
+                    Slots.Add(new Slot(slot, args => row.Set(Convert.ToInt32(args[0], CultureInfo.InvariantCulture), args[1])));
+                    _declarations.Add($"callback {slot}(int, {property.Type.Name});");
+                    // The widget's own changes, such as a click on a check box, go back to C#.
+                    _body.AppendLine(";").Append(indent).Append("changed ").Append(property.Name)
+                        .Append(" => { root.").Append(slot).Append('(').Append(rowIndex).Append(", self.").Append(property.Name).Append("); }");
+                    _body.AppendLine();
+                    continue;
+                }
             }
             else
             {
@@ -166,6 +184,10 @@ internal sealed class SourceWriter
 
     private string Bind(string type, SlintType? scalar, Func<object?> get, Action<object?>? set)
     {
+        if (scalar?.Import is { } import)
+        {
+            _widgets.Add(type + "|" + import);
+        }
         var name = $"p{Bindings.Count}";
         Bindings.Add(new Binding(name, type, scalar, get, set));
         _declarations.Add($"{(set != null ? "in-out" : "in")} property <{type}> {name};");

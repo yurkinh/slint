@@ -188,11 +188,16 @@ struct Cli {
     #[arg(long = "csharp-unit", name = "unit file")]
     csharp_unit: Option<std::path::PathBuf>,
 
-    /// Generate the builders of Slint.Markup, for UI written in C#: one class for each built-in element,
-    /// and each component that the input imports, such as the standard widgets.
+    /// Generate the builders of Slint.Markup, for UI written in C#: one class for each component that the input exports.
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-markup")]
     csharp_markup: bool,
+
+    /// With --csharp-markup, generate the builders of Slint.Markup itself:
+    /// the built-in elements, the components that the input imports, and the base class.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-markup-builtins", requires = "csharp_markup")]
+    csharp_markup_builtins: bool,
 }
 
 /// Parses the file to compile, the main file of a project directory given as input,
@@ -359,6 +364,7 @@ fn main() -> std::io::Result<()> {
                 config.live_preview = args.csharp_live_preview;
                 config.unit = args.csharp_unit.is_some();
                 config.markup = args.csharp_markup;
+                config.markup_builtins = args.csharp_markup_builtins;
             }
             _ => {
                 eprintln!("C# options were set but the output format is not C# - ignoring");
@@ -442,6 +448,11 @@ fn main() -> std::io::Result<()> {
     }
 
     compiler_config.debug_info |= format == OutputFormat::Llr;
+    // Builders are for components inside a page, so components that don't inherit Window are fine.
+    #[cfg(feature = "csharp")]
+    if args.csharp_markup {
+        compiler_config.components_to_generate = i_slint_compiler::ComponentSelection::AllExported;
+    }
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
     }

@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A component for UI written in C#, with Markup="true" in Slint.Tests.csproj.
+import { Button } from "std-widgets.slint";
+
+export enum CardTone { plain, highlighted }
+
+export component MarkupCard inherits Rectangle {
+    in property <string> title;
+    in property <CardTone> tone;
+    in property <TextHorizontalAlignment> title-alignment;
+    in-out property <bool> expanded;
+    callback opened(string);
+    background: tone == CardTone.highlighted ? #ffd : #fff;
+    VerticalLayout {
+        Text {
+            text: root.title;
+            horizontal-alignment: root.title-alignment;
+        }
+        Button {
+            text: "Open";
+            clicked => { root.expanded = !root.expanded; root.opened(root.title); }
+        }
+    }
+}
