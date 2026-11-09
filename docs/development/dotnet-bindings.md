@@ -517,6 +517,7 @@ Done:
   the unit test named its resource with `/`, which is `\` on Windows,
   and the SystemTray example crashed on the macOS runner, fixed in Slint's tray code, see [Building and Testing](#building-and-testing).
   The ".NET Android" job also failed once, when Android ended the todo example as its incremental install finished.
+  After a merge of `master` on 2026-11-09, all its 48 CI checks pass, with 18 skipped.
   The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
   as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
   Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
