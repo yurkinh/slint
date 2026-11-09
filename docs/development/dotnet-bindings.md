@@ -1107,8 +1107,24 @@ Next:
           `Slint.Markup` has neither element ids nor `.slint` code in handlers, so the port leaves them out.
         - The other 23 pages are about MAUI's platform APIs, such as maps, the battery, and the clipboard, or MAUI's own pages,
           and the remaining samples of Comet show nothing new for the core.
-    - Phase 9, next: element ids and `.slint` statements in handlers, such as `popup.show()`,
-      and a clickable shape that styles like a button, for what the ports wrote by hand.
+    - Phase 9, done on 2026-11-09:
+      - `.Id(name)` names an element, and every callback has an `On…(Expr)` overload with `.slint` statements,
+        which name the arguments as the widget declares them, or `a0`, `a1`.
+        A callback with several handlers, such as C# and then `picker.close()`, runs them in order.
+        A click with the testing backend on a button with `popup.show()` shows the popup.
+      - Struct types, such as `Date` and `Time`, are `Slint.Struct` in C#, imported from the standard widgets or the application's file;
+        a callback with arguments also has an overload without them.
+      - `Clickable` is a `Rectangle` with a centered `Text` and a `TouchArea`, which darkens on hover and press through `parent.pressed`,
+        without ids, so its source stays the same.
+        The tiles, keys, and tabs of Digits, the filter pills of the task app, and the gradient button of the gallery use it,
+        and their checks pass as before.
+      - The gallery's Pickers page has Slint's `DatePickerPopup` and `TimePickerPopup`, opened by buttons with `show()`.
+      - Found: Slint rejects a component that inherits `PopupWindow`, such as `DatePickerPopup` or one of the application,
+        inside an `if` or a `for`, with "PopupWindow cannot be directly repeated or conditional", while a plain `PopupWindow` works there.
+        `lower_popups` reports a popup that is the root of its component, which such a component's popup is.
+        `Component.Popups()` works around it: the page puts the popups of its components at its root, where the tree reaches them by id.
+        The limitation isn't reported upstream yet.
+    - Phase 10, next: the front end like CommunityToolkit.Maui.Markup, see below.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,

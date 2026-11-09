@@ -265,6 +265,19 @@ public abstract class Component : IDisposable, ISignalObserver
     /// <summary>Returns the UI, from the state of the component.</summary>
     protected abstract Element Render();
 
+    /// <summary>
+    /// Returns the popups of the component, such as a <c>DatePickerPopup</c> with an <c>Id</c>, which the page puts at its root.
+    /// The tree refers to them by their ids, such as <c>new Expr("date-picker.show()")</c>.
+    /// Slint doesn't allow a component that inherits <c>PopupWindow</c> inside an <c>if</c> or a <c>for</c>,
+    /// such as the <see cref="If"/> that shows a page of a gallery, so put such popups here.
+    /// </summary>
+    protected virtual IEnumerable<Element> Popups() => [];
+
+    internal IEnumerable<Element> RenderPopups() => Popups();
+
+    /// <summary>The component whose page renders on this thread, or <c>null</c>.</summary>
+    internal static Component? Host => t_host;
+
     /// <summary>The page, which the first use creates.</summary>
     public Page Page => _page ?? CreatePage();
 

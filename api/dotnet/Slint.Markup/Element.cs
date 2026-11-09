@@ -47,6 +47,12 @@ public sealed class SlintType
     public static SlintType Image { get; } = new("image", false);
 
     /// <summary>
+    /// The struct <paramref name="name"/>, such as <c>Date</c>, from a <see cref="Slint.Struct"/>,
+    /// which a page imports from <paramref name="import"/> unless it's built in.
+    /// </summary>
+    public static SlintType Struct(string name, string? import = null) => new(name, false, import);
+
+    /// <summary>
     /// The enum <paramref name="name"/>, from a C# enum that the builders generate,
     /// which a page imports from <paramref name="import"/> unless it's built in.
     /// </summary>
@@ -133,12 +139,26 @@ public abstract partial class Element : IEnumerable<Element>
     protected void SetHandler(string name, RowAction handler) =>
         Callbacks.Add(new CallbackHandler(name, [], _ => { }, handler));
 
+    /// <summary>
+    /// Handles the callback <paramref name="name"/> with <c>.slint</c> statements, which run without C#
+    /// and name the callback's arguments <paramref name="arguments"/>.
+    /// </summary>
+    protected void SetHandler(string name, string[] arguments, Expr statements) =>
+        Callbacks.Add(new CallbackHandler(name, [], _ => { }, null) { Statements = statements, ArgumentNames = arguments });
+
+    /// <summary>The name that <c>.slint</c> code refers to this element by, or <c>null</c>.</summary>
+    internal string? ElementId { get; set; }
+
     internal sealed record PropertyValue(string Name, SlintType Type, object? Value, Func<object?>? Get, Action<object?>? Set)
     {
         public RowBinding? Row { get; init; }
     }
 
-    internal sealed record CallbackHandler(string Name, SlintType[] Parameters, Action<object?[]> Handler, RowAction? Row);
+    internal sealed record CallbackHandler(string Name, SlintType[] Parameters, Action<object?[]> Handler, RowAction? Row)
+    {
+        public Expr? Statements { get; init; }
+        public string[] ArgumentNames { get; init; } = [];
+    }
 }
 
 /// <summary>The base of the builders; the generated part has the properties that every element has.</summary>
@@ -146,6 +166,12 @@ public abstract partial class Element<TSelf> : Element where TSelf : Element<TSe
 {
     /// <inheritdoc />
     protected Element(string type, string? import = null) : base(type, import) { }
+
+    /// <summary>
+    /// Names the element, so that <c>.slint</c> expressions and statements can refer to it, such as <c>new Expr("picker.show()")</c>.
+    /// The names must be unique in a page; the root of a page is <c>root</c>.
+    /// </summary>
+    public TSelf Id(string id) { ElementId = id; return (TSelf)this; }
 
     /// <summary>Sets a property that the builder has no method for.</summary>
     public TSelf Property(string name, SlintType type, object value) { SetValue(name, type, value); return (TSelf)this; }

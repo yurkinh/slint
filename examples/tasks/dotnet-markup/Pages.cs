@@ -110,13 +110,10 @@ internal sealed class TaskListPage : Component
     private Element FilterPill(string label, TaskCategory? category)
     {
         bool Selected() => _state.FilterCategory.Value == category;
-        return new Rectangle
-        {
-            new Text(label).FontSize(13).Color(() => Selected() ? Theme.White : Theme.DarkGray)
-                .HorizontalAlignment(TextHorizontalAlignment.Center).VerticalAlignment(TextVerticalAlignment.Center)
-                .Width(new Expr("parent.width")).Height(new Expr("parent.height")),
-            new TouchArea().OnClicked(() => _state.FilterCategory.Value = category),
-        }.Height(28).MinWidth(64).BorderRadius(12).Background(() => Selected() ? Theme.DodgerBlue : Theme.LightGray);
+        return new Clickable(label, () => _state.FilterCategory.Value = category).FontSize(13)
+            .TextColor(() => Selected() ? Theme.White : Theme.DarkGray)
+            .Background(() => Selected() ? Theme.DodgerBlue : Theme.LightGray)
+            .Height(28).MinWidth(64).BorderRadius(12);
     }
 }
 

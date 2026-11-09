@@ -377,4 +377,44 @@ public sealed class MarkupTests
         var error = Assert.ThrowsExactly<InvalidOperationException>(() => Page.Create(new CheckBox("Done").Checked(done!)));
         StringAssert.Contains(error.Message, "ForEach");
     });
+
+    [TestMethod]
+    public void NamesElementsAndRunsSlintStatementsInHandlers() => SlintThread.Run(() =>
+    {
+        Struct? picked = null;
+        using var page = Page.Create(new VerticalBox
+        {
+            new Button("Pick a date").OnClicked(new Expr("picker.show()")),
+            new DatePickerPopup().Id("picker").Title("Pick a date")
+                .OnAccepted(date => picked = date)
+                .OnAccepted(new Expr("picker.close()"))
+                .OnCanceled(new Expr("picker.close()")),
+        });
+
+        StringAssert.Contains(page.Source, "import { Button, Date, DatePickerPopup, VerticalBox } from \"std-widgets.slint\";");
+        StringAssert.Contains(page.Source, "clicked => { picker.show() }");
+        StringAssert.Contains(page.Source, "picker := DatePickerPopup {");
+        StringAssert.Contains(page.Source, "callback c0(Date);");
+        StringAssert.Contains(page.Source, "canceled => { picker.close() }");
+        // C# first, then the statements, with the argument's name from the widget.
+        StringAssert.Contains(page.Source, "accepted(date) => { root.c0(date); picker.close() }");
+
+        page.Instance.Invoke("c0", new Struct { ["year"] = 2026, ["month"] = 11, ["day"] = 9 });
+        Assert.AreEqual(2026.0, picked!["year"]);
+        Assert.AreEqual(9.0, picked["day"]);
+    });
+
+    [TestMethod]
+    public void MakesClickableShapes() => SlintThread.Run(() =>
+    {
+        var clicks = 0;
+        using var page = Page.Create(new Clickable("Tap", () => clicks++)
+            .Background(new Expr("@linear-gradient(90deg, #ff4500 0%, #1e90ff 100%)"))
+            .BorderRadius(18).TextColor(new Color(255, 255, 255)).FontSize(16).Width(120).Height(36));
+
+        StringAssert.Contains(page.Source, "background: @linear-gradient(90deg, #ff4500 0%, #1e90ff 100%);");
+        StringAssert.Contains(page.Source, "background: parent.pressed ? #00000030 : parent.has-hover ? #00000014 : transparent;");
+        page.Instance.Invoke("c0");
+        Assert.AreEqual(1, clicks);
+    });
 }

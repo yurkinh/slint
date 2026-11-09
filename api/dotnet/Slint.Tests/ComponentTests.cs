@@ -283,6 +283,36 @@ public sealed class ComponentTests
         }
     });
 
+    private sealed class DatePage : Component
+    {
+        public Struct? Picked { get; private set; }
+
+        protected override IEnumerable<Element> Popups() =>
+        [
+            new DatePickerPopup().Id("picker").OnAccepted(date => Picked = date).OnAccepted(new Expr("picker.close()")),
+        ];
+
+        protected override Element Render() => new Button("Pick").OnClicked(new Expr("picker.show()"));
+    }
+
+    private sealed class DateHost : Component
+    {
+        public readonly DatePage Dates = new();
+
+        protected override Element Render() => new VerticalLayout { new If(() => true) { Dates } };
+    }
+
+    [TestMethod]
+    public void PutsThePopupsOfComponentsAtTheRootOfThePage() => SlintThread.Run(() =>
+    {
+        // Slint doesn't allow a component that inherits PopupWindow inside an if, which Popups() works around.
+        using var host = new DateHost();
+        var source = host.Page.Source;
+        Assert.IsGreaterThan(source.IndexOf("if root.", StringComparison.Ordinal), source.IndexOf("picker := DatePickerPopup", StringComparison.Ordinal));
+        host.Page.Instance.Invoke("c0", new Struct { ["year"] = 2026, ["month"] = 1, ["day"] = 2 });
+        Assert.AreEqual(2.0, host.Dates.Picked!["day"]);
+    });
+
     [TestMethod]
     public void RendersAgainAfterAHandlerWithoutCompilingAgain() => SlintThread.Run(() =>
     {

@@ -34,13 +34,10 @@ internal sealed class DigitsGame : Component<GameState>
         },
     }.Title("Digits").Background(White).Width(420).Height(620);
 
-    private Element Tab(string label, PageView view) => new Rectangle
-    {
-        new Text(label).FontSize(16).Color(() => State.CurrentPageView == view ? White : Black)
-            .HorizontalAlignment(TextHorizontalAlignment.Center).VerticalAlignment(TextVerticalAlignment.Center)
-            .Width(new Expr("parent.width")).Height(new Expr("parent.height")),
-        new TouchArea().OnClicked(() => SetState(s => s.CurrentPageView = view)),
-    }.Height(44).Background(() => State.CurrentPageView == view ? Green : Grey);
+    private Element Tab(string label, PageView view) =>
+        new Clickable(label, () => SetState(s => s.CurrentPageView = view)).FontSize(16).Height(44)
+            .TextColor(() => State.CurrentPageView == view ? White : Black)
+            .Background(() => State.CurrentPageView == view ? Green : Grey);
 
     private Element GameBoard() => new VerticalLayout
     {
@@ -79,20 +76,14 @@ internal sealed class DigitsGame : Component<GameState>
         GameNumber? Number() => State.CurrentBoard.FirstOrDefault(n => n.Position.Row == row && n.Position.Column == column && n.Value != 0);
         bool Selected() => Number() is { } n && State.CurrentNumber == n;
         bool InError() => Number() is { } n && (State.OperationInError?.Left == n || State.OperationInError?.Right == n);
-        return new Rectangle
+        return new Clickable(() => Number()?.Value.ToString() ?? "", () =>
         {
-            new Text(() => Number()?.Value.ToString() ?? "").FontSize(24).FontWeight(700)
-                .Color(() => Selected() || InError() ? White : Black)
-                .HorizontalAlignment(TextHorizontalAlignment.Center).VerticalAlignment(TextVerticalAlignment.Center)
-                .Width(86).Height(86),
-            new TouchArea().OnClicked(() =>
+            if (Number() is { } n)
             {
-                if (Number() is { } n)
-                {
-                    OnNumberClicked(n);
-                }
-            }),
-        }
+                OnNumberClicked(n);
+            }
+        })
+        .FontSize(24).FontWeight(700).TextColor(() => Selected() || InError() ? White : Black)
         .Width(86).Height(86).BorderRadius(43)
         .Visible(() => Number() != null)
         .Background(() => InError() ? Error : Selected() ? Green : White)
@@ -100,17 +91,13 @@ internal sealed class DigitsGame : Component<GameState>
         .BorderWidth(() => Selected() ? 0 : 3);
     }
 
-    private Element Key(string label, Operation? operation, Action clicked) => new Rectangle
-    {
-        new Text(label).FontSize(operation == null ? 16 : 24).FontWeight(700).Color(operation == null ? Green : White)
-            .HorizontalAlignment(TextHorizontalAlignment.Center).VerticalAlignment(TextVerticalAlignment.Center)
-            .Width(60).Height(60),
-        new TouchArea().OnClicked(clicked),
-    }
-    .Width(60).Height(60).BorderRadius(30)
-    .Background(() => operation == null ? White
-        : State.OperationInError?.Operation == operation ? Error
-        : State.CurrentOperation == operation ? Green : Black);
+    private Element Key(string label, Operation? operation, Action clicked) =>
+        new Clickable(label, clicked).FontSize(operation == null ? 16 : 24).FontWeight(700)
+            .TextColor(operation == null ? Green : White)
+            .Width(60).Height(60).BorderRadius(30)
+            .Background(() => operation == null ? White
+                : State.OperationInError?.Operation == operation ? Error
+                : State.CurrentOperation == operation ? Green : Black);
 
     private Element OperationList() => new VerticalLayout
     {

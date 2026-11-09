@@ -45,6 +45,7 @@ internal sealed class SourceWriter
     private readonly StringBuilder _body = new();
     private readonly SortedSet<string> _widgets = new(StringComparer.Ordinal);
     private readonly List<string> _declarations = [];
+    private readonly List<Element> _popups = [];
     private int _rows;
 
     /// <summary>The files that the source imports, other than the standard widgets.</summary>
@@ -53,8 +54,13 @@ internal sealed class SourceWriter
     public List<Binding> Bindings { get; } = [];
     public List<Slot> Slots { get; } = [];
 
+    /// <summary>Writes the tree of a page, and at its root the popups of the component that renders it and of the components in the tree.</summary>
     public string Write(Element root)
     {
+        if (Component.Host is { } owner)
+        {
+            _popups.AddRange(owner.RenderPopups());
+        }
         if (root.Type == "Window" && root.Import == null)
         {
             WriteContents(root, 1, null);
@@ -63,11 +69,15 @@ internal sealed class SourceWriter
         {
             WriteElement(root, 1, null);
         }
+        foreach (var popup in _popups)
+        {
+            WriteElement(popup, 1, null);
+        }
 
         var source = new StringBuilder();
         foreach (var import in _widgets.GroupBy(w => w.Split('|')[1]))
         {
-            source.Append("import { ").AppendJoin(", ", import.Select(w => w.Split('|')[0])).Append(" } from \"").Append(import.Key).AppendLine("\";");
+            source.Append("import { ").AppendJoin(", ", import.Select(w => w.Split('|')[0]).Order(StringComparer.Ordinal)).Append(" } from \"").Append(import.Key).AppendLine("\";");
         }
         source.Append("export component ").Append(ComponentName).AppendLine(" inherits Window {");
         foreach (var declaration in _declarations)
@@ -92,6 +102,7 @@ internal sealed class SourceWriter
                 }
             case NestedComponent nested:
                 WriteElement(nested.Component.RenderNested(), depth, rowIndex);
+                _popups.AddRange(nested.Component.RenderPopups());
                 return;
             case IRepeater forEach:
                 {
@@ -108,7 +119,12 @@ internal sealed class SourceWriter
         {
             _widgets.Add(element.Type + "|" + element.Import);
         }
-        _body.Append(indent).Append(element.Type).AppendLine(" {");
+        _body.Append(indent);
+        if (element.ElementId != null)
+        {
+            _body.Append(element.ElementId).Append(" := ");
+        }
+        _body.Append(element.Type).AppendLine(" {");
         WriteContents(element, depth + 1, rowIndex);
         _body.Append(indent).AppendLine("}");
     }
@@ -150,33 +166,51 @@ internal sealed class SourceWriter
             _body.AppendLine(";");
         }
 
-        foreach (var callback in element.Callbacks)
+        // A callback with several handlers, such as C# and then .slint statements, runs them in order.
+        foreach (var handlers in element.Callbacks.GroupBy(c => c.Name))
         {
-            var name = $"c{Slots.Count}";
-            var parameters = callback.Parameters.Select((_, i) => $"a{i}").ToList();
-            var types = callback.Parameters.Select(p => p.Name).ToList();
-            if (callback.Row != null)
+            var count = handlers.Max(h => h.Statements != null ? h.ArgumentNames.Length : h.Parameters.Length);
+            var named = handlers.FirstOrDefault(h => h.Statements != null && h.ArgumentNames.Length == count);
+            var parameters = named?.ArgumentNames.ToList() ?? Enumerable.Range(0, count).Select(i => $"a{i}").ToList();
+            var statements = new List<string>();
+            foreach (var callback in handlers)
             {
-                if (rowIndex == null)
+                if (callback.Statements is { } code)
                 {
-                    throw new InvalidOperationException($"The handler of '{callback.Name}' takes a row's item, so it must be in a ForEach");
+                    statements.Add(code.Code);
+                    continue;
                 }
-                types.Add("int");
-                var row = callback.Row;
-                Slots.Add(new Slot(name, args => row.Invoke(Convert.ToInt32(args[^1], CultureInfo.InvariantCulture))));
+                foreach (var parameter in callback.Parameters.Where(p => p.Import != null))
+                {
+                    _widgets.Add(parameter.Name + "|" + parameter.Import);
+                }
+                var name = $"c{Slots.Count}";
+                var types = callback.Parameters.Select(p => p.Name).ToList();
+                var arguments = parameters.Take(callback.Parameters.Length).ToList();
+                if (callback.Row != null)
+                {
+                    if (rowIndex == null)
+                    {
+                        throw new InvalidOperationException($"The handler of '{callback.Name}' takes a row's item, so it must be in a ForEach");
+                    }
+                    types.Add("int");
+                    arguments.Add(rowIndex);
+                    var row = callback.Row;
+                    Slots.Add(new Slot(name, args => row.Invoke(Convert.ToInt32(args[^1], CultureInfo.InvariantCulture))));
+                }
+                else
+                {
+                    Slots.Add(new Slot(name, callback.Handler));
+                }
+                _declarations.Add($"callback {name}({string.Join(", ", types)});");
+                statements.Add($"root.{name}({string.Join(", ", arguments)});");
             }
-            else
-            {
-                Slots.Add(new Slot(name, callback.Handler));
-            }
-            _declarations.Add($"callback {name}({string.Join(", ", types)});");
-            var arguments = rowIndex != null && callback.Row != null ? parameters.Append(rowIndex) : parameters;
-            _body.Append(indent).Append(callback.Name);
+            _body.Append(indent).Append(handlers.Key);
             if (parameters.Count > 0)
             {
                 _body.Append('(').AppendJoin(", ", parameters).Append(')');
             }
-            _body.Append(" => { root.").Append(name).Append('(').AppendJoin(", ", arguments).AppendLine("); }");
+            _body.Append(" => { ").AppendJoin(" ", statements).AppendLine(" }");
         }
 
         foreach (var child in element.Children)

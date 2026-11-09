@@ -307,14 +307,10 @@ internal sealed class ControlsPage : Component
     protected override Element Render() => Scaffold("Controls",
         Section("Button & ProgressBar",
             new Button("Click me!", () => _clickCount.Value++),
-            // The style's Button has no background, so the gradient button is a rectangle that the user clicks.
-            new Rectangle
-            {
-                new Text("Gradient Button").Color(Colors.White).FontWeight(600)
-                    .HorizontalAlignment(TextHorizontalAlignment.Center).VerticalAlignment(TextVerticalAlignment.Center)
-                    .Width(new Expr("parent.width")).Height(new Expr("parent.height")),
-                new TouchArea().OnClicked(() => _clickCount.Value++),
-            }.Height(36).BorderRadius(6).Background(new Expr("@linear-gradient(90deg, #ff4500 0%, #1e90ff 100%)")),
+            // The style's Button has no background, so the gradient button is a Clickable.
+            new Clickable("Gradient Button", () => _clickCount.Value++)
+                .Background(new Expr("@linear-gradient(90deg, #ff4500 0%, #1e90ff 100%)"))
+                .TextColor(Colors.White).FontWeight(600).BorderRadius(6).Height(36),
             new Text(() => $"Clicks: {_clickCount.Value}").FontSize(14),
             Caption("Progress (click 20x to fill):"),
             new ProgressIndicator().Progress(() => Math.Min(1.0, _clickCount.Value / 20.0))),
@@ -372,12 +368,34 @@ internal sealed class PickersPage : Component
     private static readonly string[] Fruits =
         ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape", "Honeydew", "Kiwi", "Lemon", "Mango"];
 
+    private readonly Signal<DateTime> _selectedDate = DateTime.Today;
+    private readonly Signal<TimeSpan> _selectedTime = new TimeSpan(DateTime.Now.Hour, DateTime.Now.Minute, 0);
     private readonly Signal<int> _pickerIndex = -1;
     private readonly Signal<string> _searchText = "";
 
+    // Slint's pickers are popups, which the buttons open with show() on their ids, and which close themselves.
+    // The gallery shows this page under an If, which a popup component can't be in, so the page puts them at its root.
+    protected override IEnumerable<Element> Popups() =>
+    [
+        new DatePickerPopup().Id("date-picker").Title("Pick a date")
+            .Date(() => new Slint.Struct { ["year"] = _selectedDate.Value.Year, ["month"] = _selectedDate.Value.Month, ["day"] = _selectedDate.Value.Day })
+            .OnAccepted(date => _selectedDate.Value = new DateTime(Field(date, "year"), Field(date, "month"), Field(date, "day")))
+            .OnAccepted(new Expr("date-picker.close()"))
+            .OnCanceled(new Expr("date-picker.close()")),
+        new TimePickerPopup().Id("time-picker").Title("Pick a time")
+            .Time(() => new Slint.Struct { ["hour"] = _selectedTime.Value.Hours, ["minute"] = _selectedTime.Value.Minutes, ["second"] = 0 })
+            .OnAccepted(time => _selectedTime.Value = new TimeSpan(Field(time, "hour"), Field(time, "minute"), 0))
+            .OnAccepted(new Expr("time-picker.close()"))
+            .OnCanceled(new Expr("time-picker.close()")),
+    ];
+
     protected override Element Render() => Scaffold("Pickers",
-        Section("DatePicker and TimePicker",
-            Caption("Slint's DatePickerPopup and TimePickerPopup open with show() on their id, which Slint.Markup can't call yet.")),
+        Section("DatePicker",
+            new Button("Pick a date").OnClicked(new Expr("date-picker.show()")),
+            new Text(() => $"Selected date: {_selectedDate.Value:D}").FontSize(14)),
+        Section("TimePicker",
+            new Button("Pick a time").OnClicked(new Expr("time-picker.show()")),
+            new Text(() => $"Selected time: {DateTime.Today.Add(_selectedTime.Value):hh\\:mm tt}").FontSize(14)),
         Section("Picker (Dropdown)",
             new ComboBox().Model(ColorOptions).CurrentIndex(() => _pickerIndex.Value, index => _pickerIndex.Value = index),
             new Text(() => _pickerIndex.Value >= 0 && _pickerIndex.Value < ColorOptions.Length
@@ -394,4 +412,7 @@ internal sealed class PickersPage : Component
                 var matches = Fruits.Where(f => f.Contains(_searchText.Value, StringComparison.OrdinalIgnoreCase)).ToArray();
                 return matches.Length > 0 ? $"Found: {string.Join(", ", matches)}" : "No matches found.";
             }).FontSize(14).Color(Colors.Grey)));
+
+    // Slint passes the int fields of a struct as numbers.
+    private static int Field(Slint.Struct value, string name) => Convert.ToInt32(value[name], System.Globalization.CultureInfo.InvariantCulture);
 }

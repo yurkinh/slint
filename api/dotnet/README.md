@@ -514,6 +514,20 @@ sealed class Counter : Component
   `row.Get` reads a field of the item, also of a record in it; `row.Bind` also passes the user's changes back,
   and `row.Do` handles a callback, with the item and, if needed, its index; `row.Item` is an item without fields, such as a string.
 - `new Expr("parent.width / 2")` sets a property to a `.slint` expression, and `.Property(name, type, value)` sets one that a builder lacks.
+- `.Id("picker")` names an element, and a callback also takes `.slint` statements, which run without C#,
+  such as for a popup; a callback with several handlers runs them in order:
+
+  ```csharp
+  new Button("Pick a date").OnClicked(new Expr("picker.show()")),
+  new DatePickerPopup().Id("picker")
+      .OnAccepted(date => _date.Value = date)            // a Slint.Struct with year, month, and day
+      .OnAccepted(new Expr("picker.close()")),
+  ```
+
+  Slint doesn't allow a component that inherits `PopupWindow`, such as `DatePickerPopup`, inside an `if` or a `for`;
+  a component that's shown under an `If` returns such popups from `Popups()`, which the page puts at its root.
+- `Clickable` is a rectangle with a text that the user clicks, for buttons with their own colors and shapes,
+  which the style's `Button` doesn't have: `new Clickable("7", () => Pick(7)).BorderRadius(43).Background(white).TextColor(black)`.
 - The components of your own `.slint` files get builders too:
 
   ```xml

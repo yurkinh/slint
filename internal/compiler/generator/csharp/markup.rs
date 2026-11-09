@@ -6,7 +6,7 @@
 
 use super::{Config, ident, string_literal, write_enum};
 use crate::element_type::{ElementDocEntry, ElementType, PropertyLookupMode};
-use crate::langtype::{Enumeration, Type};
+use crate::langtype::{Enumeration, StructName, Type};
 use crate::native_class::PropertyVisibility;
 use crate::object_tree::{Component, Document};
 use crate::typeregister::reserved_properties;
@@ -44,6 +44,7 @@ const ELEMENT_MEMBERS: &[&str] = &[
     "GetEnumerator",
     "GetHashCode",
     "GetType",
+    "Id",
     "MemberwiseClone",
     "Property",
     "SetBinding",
@@ -96,6 +97,21 @@ fn map_type(ty: &Type, enums: &mut Enums) -> Option<Mapped> {
             "global::System.Collections.Generic.IReadOnlyList<string>".into(),
             "StringArray".into(),
         ),
+        Type::Struct(s) => {
+            let name = s.name.slint_name()?;
+            // The structs of the standard widgets, such as `Date`, come from their library; built-in ones need no import.
+            let import = match &s.name {
+                StructName::User { node, .. } => {
+                    if node.source_file.as_ref().is_some_and(|f| f.path().is_builtin()) {
+                        format!(", {}", string_literal("std-widgets.slint"))
+                    } else {
+                        format!(", {}", enums.import)
+                    }
+                }
+                _ => String::new(),
+            };
+            ("global::Slint.Struct".into(), format!("Struct({}{import})", string_literal(&name)))
+        }
         Type::Enumeration(e) => {
             let import =
                 if e.node.is_some() { format!(", {}", enums.import) } else { String::new() };
@@ -179,6 +195,10 @@ fn write_members(out: &mut String, this: &str, members: &[Member], enums: &mut E
                             out,
                             "    /// <summary>{doc} The page updates after the handler.</summary>\n    public {this} {handler}(global::System.Action<{types}> handler) {{ SetHandler({name}, [{slint}], a => handler({call})); return this; }}"
                         );
+                        let _ = writeln!(
+                            out,
+                            "    /// <summary>{doc} The handler doesn't need the arguments; the page updates after it.</summary>\n    public {this} {handler}(global::System.Action handler) {{ SetHandler({name}, [], _ => handler()); return this; }}"
+                        );
                     }
                     _ => {
                         let _ = writeln!(
@@ -190,6 +210,28 @@ fn write_members(out: &mut String, this: &str, members: &[Member], enums: &mut E
                 let _ = writeln!(
                     out,
                     "    /// <summary>{doc} The handler receives the item of the row of a ForEach.</summary>\n    public {this} {handler}(global::Slint.Markup.RowAction handler) {{ SetHandler({name}, handler); return this; }}"
+                );
+                let argument_names = (0..function.args.len())
+                    .map(|i| {
+                        function
+                            .arg_names
+                            .get(i)
+                            .filter(|n| !n.is_empty())
+                            .map_or_else(|| format!("a{i}"), |n| n.to_string())
+                    })
+                    .collect::<Vec<_>>();
+                let names = if argument_names.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        " The statements name the arguments {}.",
+                        argument_names.iter().map(|n| format!("<c>{n}</c>")).join(", ")
+                    )
+                };
+                let arguments = argument_names.iter().map(|n| string_literal(n)).join(", ");
+                let _ = writeln!(
+                    out,
+                    "    /// <summary>{doc} With <c>.slint</c> statements, such as <c>popup.show()</c>, which run without C#.{names}</summary>\n    public {this} {handler}(global::Slint.Markup.Expr statements) {{ SetHandler({name}, [{arguments}], statements); return this; }}"
                 );
             }
             Type::Callback(_) | Type::Function(_) => {}
