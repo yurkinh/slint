@@ -740,7 +740,7 @@ Done:
     to a Slint UI, one global per page, ported with their MIT notice.
     `dotnet new slint --mvvm` adds a `MainViewModel`; CI instantiates it, and the publish workflow builds it with the packages.
 - **27.** Faster startup: the build compiles the `.slint` files, as a Rust app's build does, instead of the generated code at startup.
-  It's in 1.19.0-preview.12.
+  It's in 1.19.0-preview.12, published on 2026-11-09.
   - Phase 0, done on 2026-11-07, with release builds on an Apple Silicon Mac:
     - Compiling takes 24 ms for the todo example, 41 ms for the printer demo, and 102 ms for the gallery.
       The 180 ms of item 26 for `Button` and `VerticalBox` didn't hold: that page compiles in 17 ms.
@@ -788,7 +788,8 @@ Next:
   It also hosts the article "Slint ♥ .NET", at <https://yurkinh.github.io/slint/slint-loves-dotnet/>,
   a tour of the bindings up to preview.10, which the documentation's overview links to,
   and "Slint ♥ .NET, Part 2", at <https://yurkinh.github.io/slint/slint-loves-dotnet-2/>, with only what's new since: the browser and DrawnUI.
-  The page has a Web section from preview.11; both wait on the `gh-pages` branch until preview.11 is on nuget.org.
+  The page has a Web section from preview.11, and View Models, `SlintEmbedFiles`, and `SlintPrecompile` from preview.12.
+  Part 2, now covering preview.11 and preview.12, waits for approval on the local branch `slint-loves-dotnet-2-draft`.
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and the `linuxkms` backend on embedded Linux,
