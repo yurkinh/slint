@@ -327,6 +327,21 @@ fn write_class(
             out,
             "    /// <summary>A `{slint_name}` with a text from a <c>.slint</c> expression, such as a field of a row.</summary>\n    public {class}(global::Slint.Markup.Expr text) : this() => SetExpression(\"text\", {slint}, text);"
         );
+        // Like Comet's `new Button("Add", () => count.Value++)`.
+        let clickable = members.iter().any(|m| {
+            m.name == "clicked"
+                && matches!(&m.ty, Type::Callback(f) if f.args.is_empty() && f.return_type == Type::Void)
+        });
+        if clickable {
+            let _ = writeln!(
+                out,
+                "    /// <summary>A `{slint_name}` with a text that doesn't change, which runs <paramref name=\"clicked\"/> on a click.</summary>\n    public {class}(string text, global::System.Action clicked) : this(text) => OnClicked(clicked);"
+            );
+            let _ = writeln!(
+                out,
+                "    /// <summary>A `{slint_name}` with a text that the page reads again on each update, which runs <paramref name=\"clicked\"/> on a click.</summary>\n    public {class}(global::System.Func<string> text, global::System.Action clicked) : this(text) => OnClicked(clicked);"
+            );
+        }
     }
     write_members(out, &class, members, enums);
     let _ = writeln!(out, "}}\n");

@@ -42,6 +42,9 @@ public sealed class Row<T>
     /// <summary>The row's index.</summary>
     public Expr Index { get; }
 
+    /// <summary>The row's item, for items such as strings, which have no fields.</summary>
+    public Expr Item => new(Variable);
+
     /// <summary>
     /// The field <paramref name="field"/> of the row's item, such as <c>row.Get(t => t.Title)</c>,
     /// or of a record in it, such as <c>row.Get(t => t.Owner.Name)</c>.
@@ -106,6 +109,9 @@ internal interface IRepeater
 /// </summary>
 public sealed class ForEach<T>(Func<IEnumerable<T>> items, Func<Row<T>, Element> template) : Element("for"), IRepeater
 {
+    /// <summary>Repeats the template for each item of <paramref name="items"/>, such as a <see cref="SignalList{T}"/>, which the page reads again on each update.</summary>
+    public ForEach(IEnumerable<T> items, Func<Row<T>, Element> template) : this(() => items, template) { }
+
     internal List<T> Current { get; private set; } = [];
 
     Element IRepeater.Template(string variable, string index) => template(new Row<T>(this, variable, index));

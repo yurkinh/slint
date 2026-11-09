@@ -1022,6 +1022,22 @@ Next:
     `If` and `ForEach` compile to Slint's `if` and `for`, so a page compiles once,
     while a C# condition in `Render()` recompiles through the cache, with a warning in Debug builds.
     Comet itself depends on MAUI's handlers, so only its API is a model.
+    - Phase 4, done on 2026-11-09, in `Slint.Markup`:
+      - `Component` has an abstract `Render()`, and creates its `Page` on first use.
+        After a handler of the page, and after a change of a `Signal<T>` or `SignalList<T>` field, which it finds by reflection like Comet's `State<T>`,
+        it calls `Render()` again through `Page.Rebuild`.
+        A tree with the same source only sets the values that changed; the changes of one handler render once.
+      - `Component<TState>` has `State` and `SetState`, with an action or a new state.
+      - A changed structure compiles another source, and the Debug build of an application writes a warning that points to `If` and `ForEach`.
+      - Slint asserts that no callback gets a new handler while it runs, so a page sets each callback once per instance,
+        and its handler looks up the C# handler of the current tree.
+      - The generator adds Comet's constructors, such as `new Button("Add", () => count.Value++)`, to builders with `text` and `clicked`,
+        and `row.Item` refers to an item without fields, such as a string.
+      - `examples/todo/dotnet-markup` is a `Component` with a `SignalList<Todo>` and a `Signal<string>`.
+    - Phase 5, 1 week: `Slint.Markup` as a package, compatible with trimming and Native AOT, which the reflection on fields and items isn't yet;
+      a README section and a template, `dotnet new slint --markup`; and the samples of Comet ported, for what the API misses.
+    - Phase 6, 1 week: components inside components, each with its own state, as `.slint` components that a parent page creates,
+      and component files on Android, iOS, and in the browser, through `SlintEmbedFiles`.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,

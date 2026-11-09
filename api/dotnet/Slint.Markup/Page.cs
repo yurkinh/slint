@@ -39,6 +39,7 @@ public sealed class Page : IDisposable
 
     private readonly Func<Element>? _render;
     private List<Binding> _bindings = [];
+    private Dictionary<string, Action<object?[]>> _handlers = [];
     private object?[] _values = [];
     private readonly List<IDisposable> _watches = [];
 
@@ -60,6 +61,12 @@ public sealed class Page : IDisposable
             }
         }
     }
+
+    /// <summary>What runs after a handler of the page, or a change of the UI that a two-way binding passes on: <see cref="Update"/> unless a <see cref="Component"/> sets it.</summary>
+    internal Action? AfterHandler { get; set; }
+
+    /// <summary>Whether a handler of the page is running.</summary>
+    internal bool Handling { get; private set; }
 
     /// <summary>The component instance, such as for its <see cref="ComponentInstance.Window"/>; a rebuild can replace it.</summary>
     public ComponentInstance Instance { get; private set; }
@@ -115,7 +122,7 @@ public sealed class Page : IDisposable
         var source = writer.Write(_render());
         if (source == Source)
         {
-            Attach(writer);
+            Attach(writer, keepValues: true);
             return;
         }
         var (definition, origin, time) = Load(source, writer.ImportedFiles);
@@ -191,36 +198,56 @@ public sealed class Page : IDisposable
         }
     }
 
-    private void Attach(SourceWriter writer)
+    /// <summary>
+    /// Connects the bindings and callbacks of <paramref name="writer"/> to the instance.
+    /// For the same source on the same instance, it swaps the C# side only, and sets the values that differ from the ones already set:
+    /// Slint doesn't allow replacing the handler of a callback while it runs, such as when a handler changes the state of a <see cref="Component"/>.
+    /// </summary>
+    private void Attach(SourceWriter writer, bool keepValues = false)
     {
-        DisposeWatches();
         _bindings = writer.Bindings;
+        _handlers = writer.Slots.ToDictionary(s => s.Name, s => s.Handler);
+        if (keepValues && _values.Length == _bindings.Count)
+        {
+            Update();
+            return;
+        }
+        DisposeWatches();
         _values = Enumerable.Repeat(Unset, _bindings.Count).ToArray();
         var instance = Instance;
-        foreach (var slot in writer.Slots)
+        foreach (var name in _handlers.Keys)
         {
-            instance.SetCallback(slot.Name, args =>
-            {
-                slot.Handler(args);
-                Update();
-            });
+            instance.SetCallback(name, args => Handle(() => _handlers[name](args)));
         }
         Update();
         for (var i = 0; i < _bindings.Count; i++)
         {
-            var (binding, index) = (_bindings[i], i);
-            if (binding.Set == null)
+            var index = i;
+            if (_bindings[index].Set == null)
             {
                 continue;
             }
-            _watches.Add(instance.WatchProperty(binding.Name, () =>
+            _watches.Add(instance.WatchProperty(_bindings[index].Name, () =>
             {
-                var value = instance.GetProperty(binding.Name);
+                var value = instance.GetProperty(_bindings[index].Name);
                 _values[index] = value;
-                binding.Set(value);
-                Update();
+                Handle(() => _bindings[index].Set!(value));
             }));
         }
+    }
+
+    private void Handle(Action handler)
+    {
+        Handling = true;
+        try
+        {
+            handler();
+        }
+        finally
+        {
+            Handling = false;
+        }
+        (AfterHandler ?? Update)();
     }
 
     private void DisposeWatches()
