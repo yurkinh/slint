@@ -102,6 +102,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
     <li><a href="#structs-and-enums">Structs and Enums</a></li>
     <li><a href="#globals">Globals</a></li>
     <li><a href="#models">Models</a></li>
+    <li><a href="#view-models">View Models</a></li>
     <li><a href="#images">Images</a></li>
     <li><a href="#charts">Charts</a></li>
     <li><a href="#window">Window</a></li>
@@ -127,7 +128,7 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; border-top: 1px
 <main>
 <h1>Slint for .NET</h1>
 <p class="subtitle">Community .NET bindings for the Slint UI toolkit, in preview.</p>
-<p class="version">yurkinh.slint.net 1.19.0-preview.11 · .NET 10</p>
+<p class="version">yurkinh.slint.net 1.19.0-preview.12 · .NET 10</p>
 
 <div class="notice">
   <strong>Community project.</strong>
@@ -258,6 +259,10 @@ internal static class Program
 <tr><td><code>SlintNamespace</code></td><td>The namespace of the generated classes, instead of the root namespace.</td></tr>
 <tr><td><code>SlintStyle</code></td><td>The widget style, such as <code>fluent</code>, <code>material</code>, or <code>cupertino</code>.</td></tr>
 <tr><td><code>SlintCopyToOutput</code></td><td><code>false</code> loads the <code>.slint</code> files from the project directory instead of copying them to the output.</td></tr>
+<tr><td><code>SlintEmbedFiles</code></td><td><code>true</code> embeds the <code>.slint</code> files in the assembly, with the images and fonts they use, instead of copying them, see <a href="#deployment">Deployment</a>.
+  On by default for a single-file publish, and on Android and iOS. From 1.19.0-preview.12.</td></tr>
+<tr><td><code>SlintPrecompile</code></td><td><code>false</code> compiles the <code>.slint</code> files when the app starts.
+  From 1.19.0-preview.12, the build compiles them by default, and the app starts without compiling them again.</td></tr>
 <tr><td><code>SlintIncludePaths</code></td><td>Directories that imports search, separated by semicolons.</td></tr>
 <tr><td><code>SlintLivePreview</code></td><td><code>true</code> reloads the UI when a <code>.slint</code> file changes, see <a href="#hot-reload">Hot Reload</a>.</td></tr>
 <tr><td><code>SlintTranslationDomain</code>, <code>SlintBundledTranslations</code></td><td>Bundle translations, see <a href="#translations">Translations</a>.</td></tr>
@@ -267,8 +272,11 @@ internal static class Program
   &lt;SlintLibraryPath Include="mylib" Path="../mylib/" /&gt;
 &lt;/ItemGroup&gt;</code></pre>
 <p>
-  The generated code loads the <code>.slint</code> files at run time,
-  so the build copies them to the output directory, next to the application.
+  The build compiles the <code>.slint</code> files, with the images and fonts they use, and embeds the result in the assembly,
+  so the app starts without compiling them: the gallery example creates its window in 17 ms instead of 106 ms on the desktop,
+  and in 165 ms instead of 385 ms in the browser.
+  The build also copies the <code>.slint</code> files to the output directory, next to the application.
+  The app compiles them at startup instead with live reload, or with <code>SLINT_STYLE</code> set to a style other than the build's.
 </p>
 
 <h3 id="project-files">Project Files and Editions</h3>
@@ -460,6 +468,61 @@ var shown = names.Filter(name =&gt; name.StartsWith(prefix));
 app.OnPrefixEdited(text =&gt; { prefix = text; shown.Reset(); });
 app.OnDeleteClicked(() =&gt; names.RemoveAt(shown.SourceRow(app.CurrentItem)));</code></pre>
 <p>Reading an array property gives back the model you set, or a read-only model for an array from the <code>.slint</code> file.</p>
+
+<h2 id="view-models">View Models</h2>
+<p><em>From 1.19.0-preview.12.</em></p>
+<p>
+  Bind a view model, such as one written with <a href="https://www.nuget.org/packages/CommunityToolkit.Mvvm">CommunityToolkit.Mvvm</a>,
+  to a component, instead of copying values between them.
+  Add <code>[SlintViewModel]</code> with the class of the component, and call the <code>Bind</code> that the build generates:
+</p>
+<pre><code class="language-csharp">[SlintViewModel(typeof(AppWindow))]
+public partial class MainViewModel : ObservableObject
+{
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+    private string _name = "";
+
+    public ObservableCollection&lt;string&gt; Tags { get; } = [];
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private void Save() =&gt; Tags.Add(Name);
+
+    private bool CanSave() =&gt; Name.Length &gt; 0;
+}
+
+using var app = AppWindow.Create();
+using var binding = app.Bind(new MainViewModel());
+app.Run();</code></pre>
+<p><code>Bind</code> binds the members of the same C# name:</p>
+<ul>
+  <li>A property binds to the component's property: <code>Name</code> to <code>in-out property &lt;string&gt; name</code>,
+    both ways when the view model's property has a setter.</li>
+  <li>A collection, such as an <code>ObservableCollection&lt;T&gt;</code>, binds to an array property with the same item type.</li>
+  <li>A command, such as <code>SaveCommand</code>, binds to the callback <code>save</code>, its <code>CanExecute</code> to <code>save-enabled</code>,
+    and for an asynchronous command, its <code>IsRunning</code> to <code>save-running</code>, if the component has them.</li>
+  <li>With <code>INotifyDataErrorInfo</code>, as <code>ObservableValidator</code> has, the errors of <code>Name</code> bind to the string property <code>name-error</code>.</li>
+</ul>
+<p>
+  The build warns about a member whose type doesn't fit.
+  For other names and conversions, bind members one by one through the component's <code>Instance</code>:
+</p>
+<pre><code class="language-csharp">using var binding = app.Instance.Bind(viewModel)
+    .Property("title", vm =&gt; vm.Title)
+    .Property("note", vm =&gt; vm.Note, (vm, value) =&gt; vm.Note = value)
+    .Command("submit", vm =&gt; vm.SubmitCommand, enabledProperty: "can-submit");</code></pre>
+<p>
+  <code>[SlintViewModel(typeof(SettingsPage))]</code> binds a view model to an exported global instead, with <code>app.SettingsPage.Bind(viewModel)</code>,
+  such as one global per page.
+  The view model can raise its changes on any thread; the component updates on the Slint thread.
+  <code>dotnet new slint --mvvm</code> creates an app with a view model,
+  and <a href="https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/mvvm/dotnet"><code>examples/mvvm/dotnet</code></a>
+  binds the view models of the MVVM-Samples of CommunityToolkit.Mvvm.
+</p>
+<p>
+  Without the attribute, <code>ObservableCollectionModel&lt;T&gt;</code> turns a collection into a model that follows its changes,
+  and <code>WatchProperty</code> of <code>ComponentInstance</code> runs code after a property changes.
+</p>
 
 <h2 id="images">Images</h2>
 <p>
@@ -791,8 +854,8 @@ public class MainActivity : SlintActivity
 <ul>
   <li><code>SlintMain</code> and every callback run on Slint's thread, not on the Android UI thread.</li>
   <li>An app has one <code>SlintActivity</code>, which ends the process when Android destroys it, such as after the Back button.</li>
-  <li>The build puts the <code>.slint</code> files into the APK, and <code>SlintActivity</code> extracts them at startup.
-    Add the images they use as <code>&lt;SlintFile Include="ui/images/logo.png" Generate="false" /&gt;</code>, under the project directory.</li>
+  <li>The assembly embeds the <code>.slint</code> files with the images and fonts they use, as on iOS.
+    Before 1.19.0-preview.12, the build put only the <code>.slint</code> files into the APK, and images failed to load.</li>
 </ul>
 <h3>Keeping State</h3>
 <p><em>From 1.19.0-preview.8.</em></p>
@@ -836,7 +899,7 @@ protected override void SlintRestoreState(byte[] state) =&gt; Apply(JsonSerializ
     &lt;SlintFile Include="ui/app-window.slint" /&gt;
   &lt;/ItemGroup&gt;
   &lt;ItemGroup&gt;
-    &lt;PackageReference Include="yurkinh.slint.net" Version="1.19.0-preview.11" /&gt;
+    &lt;PackageReference Include="yurkinh.slint.net" Version="1.19.0-preview.12" /&gt;
   &lt;/ItemGroup&gt;
 &lt;/Project&gt;</code></pre>
   </li>
@@ -914,7 +977,7 @@ using var observer = UIKit.UIApplication.Notifications.ObserveDidEnterBackground
   &lt;/PropertyGroup&gt;
   &lt;ItemGroup&gt;
     &lt;SlintFile Include="ui/app-window.slint" /&gt;
-    &lt;PackageReference Include="yurkinh.slint.net" Version="1.19.0-preview.11" /&gt;
+    &lt;PackageReference Include="yurkinh.slint.net" Version="1.19.0-preview.12" /&gt;
   &lt;/ItemGroup&gt;
 &lt;/Project&gt;</code></pre>
   </li>
@@ -974,8 +1037,12 @@ dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
 <tr><td>The browser, from 1.19.0-preview.11</td><td><code>browser-wasm</code>, as a static library that the app links</td></tr>
 </table></div>
 <ul>
-  <li>The application loads the <code>.slint</code> files, and the images they use, at run time.
-    The build copies the <code>.slint</code> files to the output; ship the images too, at the same paths relative to them.</li>
+  <li>The build copies the <code>.slint</code> files to the output, for the app to compile them when it can't use the compiled ones;
+    ship the images too, at the same paths relative to them.</li>
+  <li>With <code>SlintEmbedFiles</code>, from 1.19.0-preview.12, the assembly embeds the <code>.slint</code> files, the images and fonts they use,
+    and the bundled translations instead. It's on by default for a single-file publish, which then writes one executable:
+    <code>dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true</code>.
+    With Native AOT, the output is the executable and the <code>slint_dotnet</code> library.</li>
   <li>On Windows, set <code>&lt;OutputType&gt;WinExe&lt;/OutputType&gt;</code> to start without a console window.</li>
   <li>On Linux, the windowing backend loads <code>libxkbcommon-x11</code> at run time, so install it on the target system.</li>
 </ul>
