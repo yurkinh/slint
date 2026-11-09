@@ -537,6 +537,32 @@ sealed class Counter : Component
   The build generates a builder for each component that the file exports, in the project's namespace,
   and the pages import the file from the output directory, or with `SlintEmbedFiles` from the assembly.
 
+### Binding to a View Model
+
+Instead of a component, a tree can bind to a view model, such as one of CommunityToolkit.Mvvm,
+in the style of [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup):
+
+```csharp
+var viewModel = new ContactsViewModel();
+using var page = Page.Create(new VerticalBox
+{
+    new LineEdit().Bind(LineEdit.TextProperty, (ContactsViewModel vm) => vm.Name, (vm, name) => vm.Name = name),
+    new Text().Bind(Text.TextProperty, (ContactsViewModel vm) => vm.Errors(nameof(vm.Name))),
+    new Button("Add").BindCommand((ContactsViewModel vm) => vm.AddCommand),
+    new ForEach<Contact>(() => viewModel.Contacts, row => new Text(row.Get(c => c.Name))),
+}.BindingContext(viewModel));
+page.Run();
+```
+
+- `BindingContext` sets the view model of an element and its descendants.
+- `Bind` binds a property of a builder, such as `LineEdit.TextProperty`, to a value of the view model, or both ways with a setter.
+- `BindCommand` runs a command on a click, and enables the element while the command can run.
+- `Row`, `Column`, `RowSpan`, and `ColumnSpan` place children in a `GridLayout`.
+- The page updates after `PropertyChanged`, `ErrorsChanged`, `CollectionChanged`, and `CanExecuteChanged`,
+  also of the lists of `ForEach` and their items, from any thread.
+
+`examples/contacts/dotnet-markup` is a form with validation, a list with search, and an asynchronous command.
+
 Pages compile their `.slint` code once, and keep the result in `Page.CacheDirectory`,
 so the next start reads it in under a millisecond instead of compiling it again.
 `Page.Style` sets the widget style of the pages.

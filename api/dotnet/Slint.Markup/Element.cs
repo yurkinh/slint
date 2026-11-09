@@ -152,12 +152,39 @@ public abstract partial class Element : IEnumerable<Element>
     internal sealed record PropertyValue(string Name, SlintType Type, object? Value, Func<object?>? Get, Action<object?>? Set)
     {
         public RowBinding? Row { get; init; }
+
+        /// <summary>Reads the value from the binding context, for <see cref="MarkupExtensions.Bind{TElement, TViewModel, TValue}(TElement, Property{TValue}, Func{TViewModel, TValue})"/>.</summary>
+        public Func<object, object?>? ContextGet { get; init; }
+
+        public Action<object, object?>? ContextSet { get; init; }
+    }
+
+    /// <summary>The object that the bindings of this element and its descendants read, such as a view model.</summary>
+    internal object? Context { get; set; }
+
+    /// <summary>Binds the property to the binding context.</summary>
+    internal void SetContextBinding(string name, SlintType type, Func<object, object?> get, Action<object, object?>? set) =>
+        Properties.Add(new PropertyValue(name, type, null, null, null) { ContextGet = get, ContextSet = set });
+
+    /// <summary>
+    /// Runs the command that <paramref name="command"/> reads from the binding context on <paramref name="callback"/>,
+    /// and binds <paramref name="enabled"/>, if any, to whether it can run.
+    /// </summary>
+    internal void SetCommand(string callback, string? enabled, Func<object, System.Windows.Input.ICommand> command, Func<object, object?>? parameter)
+    {
+        Callbacks.Add(new CallbackHandler(callback, [], _ => { }, null) { Command = command, CommandParameter = parameter });
+        if (enabled != null)
+        {
+            SetContextBinding(enabled, SlintType.Bool, context => command(context).CanExecute(parameter?.Invoke(context)), null);
+        }
     }
 
     internal sealed record CallbackHandler(string Name, SlintType[] Parameters, Action<object?[]> Handler, RowAction? Row)
     {
         public Expr? Statements { get; init; }
         public string[] ArgumentNames { get; init; } = [];
+        public Func<object, System.Windows.Input.ICommand>? Command { get; init; }
+        public Func<object, object?>? CommandParameter { get; init; }
     }
 }
 
@@ -172,6 +199,15 @@ public abstract partial class Element<TSelf> : Element where TSelf : Element<TSe
     /// The names must be unique in a page; the root of a page is <c>root</c>.
     /// </summary>
     public TSelf Id(string id) { ElementId = id; return (TSelf)this; }
+
+    /// <summary>The column of the element in a <see cref="GridLayout"/>, like <c>Col</c>.</summary>
+    public TSelf Column(int column) => Col(column);
+
+    /// <summary>How many columns of a <see cref="GridLayout"/> the element spans, like <c>Colspan</c>.</summary>
+    public TSelf ColumnSpan(int span) => Colspan(span);
+
+    /// <summary>How many rows of a <see cref="GridLayout"/> the element spans, like <c>Rowspan</c>.</summary>
+    public TSelf RowSpan(int span) => Rowspan(span);
 
     /// <summary>Sets a property that the builder has no method for.</summary>
     public TSelf Property(string name, SlintType type, object value) { SetValue(name, type, value); return (TSelf)this; }

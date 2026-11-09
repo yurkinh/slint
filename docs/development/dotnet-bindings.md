@@ -1124,9 +1124,22 @@ Next:
         `lower_popups` reports a popup that is the root of its component, which such a component's popup is.
         `Component.Popups()` works around it: the page puts the popups of its components at its root, where the tree reaches them by id.
         The limitation isn't reported upstream yet.
-    - Phase 10, next: the front end like CommunityToolkit.Maui.Markup, see below.
-  - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
-    `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
+    - Phase 10, done on 2026-11-09: the front end like CommunityToolkit.Maui.Markup, below.
+  - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), done on 2026-11-09 as phase 10,
+    with its own notifications rather than the `ViewModelBinding` of item 25, since the page reads the lambdas:
+    - The generator writes a descriptor for each property, such as `LineEdit.TextProperty`,
+      and `BindCommand` for the builders with `clicked`, which binds `enabled` when they have it.
+    - `.BindingContext(vm)` sets the view model of an element and its descendants, which the writer passes down;
+      `.Bind(property, (Vm vm) => …)` binds one way, and with a setter both ways; a binding without a context throws.
+    - The page follows `PropertyChanged` and `ErrorsChanged` of the contexts, `CanExecuteChanged` and `PropertyChanged` of the commands,
+      such as `IsRunning`, and `CollectionChanged` and `PropertyChanged` of the lists of `ForEach` and their items,
+      and updates once for the notifications of other threads.
+    - `Column`, `ColumnSpan`, and `RowSpan` are aliases of Slint's `col`, `colspan`, and `rowspan`.
+    - `examples/contacts/dotnet-markup` binds a view model of CommunityToolkit.Mvvm: a form with validation, a search,
+      a list with removal, and an asynchronous refresh with a spinner.
+      Driven through its callbacks, its errors, `CanExecute`, list, search, and `IsRunning` follow the view model.
+    - Found: an enum value, such as an alignment, becomes a property that C# sets, which keeps the source the same,
+      but adds a property per value.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,
     and lose the focus, scrolling, and animations of the UI.
 - **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:

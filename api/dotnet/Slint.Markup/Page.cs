@@ -176,6 +176,20 @@ public sealed class Page : IDisposable
 
     private void SetChangedValues()
     {
+        var previous = t_updating;
+        t_updating = this;
+        try
+        {
+            SetChangedValuesOfBindings();
+        }
+        finally
+        {
+            t_updating = previous;
+        }
+    }
+
+    private void SetChangedValuesOfBindings()
+    {
         for (var i = 0; i < _bindings.Count; i++)
         {
             var binding = _bindings[i];
@@ -201,6 +215,12 @@ public sealed class Page : IDisposable
     /// <summary>Hides the window, and releases the instance.</summary>
     public void Dispose()
     {
+        _disposed = true;
+        foreach (var unsubscribe in _unsubscribe)
+        {
+            unsubscribe();
+        }
+        _unsubscribe.Clear();
         DisposeWatches();
         if (Instance.Window.IsVisible)
         {
@@ -227,6 +247,80 @@ public sealed class Page : IDisposable
         }
     }
 
+    private readonly HashSet<object> _observed = new(ReferenceEqualityComparer.Instance);
+    private readonly List<Action> _unsubscribe = [];
+    private readonly int _slintThread = Environment.CurrentManagedThreadId;
+    private int _posted;
+
+    [ThreadStatic]
+    private static Page? t_updating;
+
+    /// <summary>Follows the notifications of <paramref name="source"/>, such as an item of a <see cref="ForEach{T}"/>, if the page is updating.</summary>
+    internal static void ObserveDuringUpdate(object? source)
+    {
+        if (source != null)
+        {
+            t_updating?.Observe(source);
+        }
+    }
+
+    /// <summary>Updates the page after a notification of <paramref name="source"/>: a view model, a collection, or a command.</summary>
+    private void Observe(object source)
+    {
+        if (!_observed.Add(source))
+        {
+            return;
+        }
+        if (source is System.ComponentModel.INotifyPropertyChanged properties)
+        {
+            System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => OnNotified();
+            properties.PropertyChanged += handler;
+            _unsubscribe.Add(() => properties.PropertyChanged -= handler);
+        }
+        if (source is System.Collections.Specialized.INotifyCollectionChanged collection)
+        {
+            System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, _) => OnNotified();
+            collection.CollectionChanged += handler;
+            _unsubscribe.Add(() => collection.CollectionChanged -= handler);
+        }
+        if (source is System.ComponentModel.INotifyDataErrorInfo errors)
+        {
+            EventHandler<System.ComponentModel.DataErrorsChangedEventArgs> handler = (_, _) => OnNotified();
+            errors.ErrorsChanged += handler;
+            _unsubscribe.Add(() => errors.ErrorsChanged -= handler);
+        }
+        if (source is System.Windows.Input.ICommand command)
+        {
+            EventHandler handler = (_, _) => OnNotified();
+            command.CanExecuteChanged += handler;
+            _unsubscribe.Add(() => command.CanExecuteChanged -= handler);
+        }
+    }
+
+    private void OnNotified()
+    {
+        if (Environment.CurrentManagedThreadId != _slintThread)
+        {
+            // The notifications of other threads before the Slint thread gets to them update once.
+            if (Interlocked.Exchange(ref _posted, 1) == 0)
+            {
+                EventLoop.InvokeFromEventLoop(() =>
+                {
+                    Volatile.Write(ref _posted, 0);
+                    OnNotified();
+                });
+            }
+            return;
+        }
+        // A handler updates the page when it returns.
+        if (!Handling && !_disposed)
+        {
+            (AfterHandler ?? Update)();
+        }
+    }
+
+    private bool _disposed;
+
     /// <summary>
     /// Connects the bindings and callbacks of <paramref name="writer"/> to the instance.
     /// For the same source on the same instance, it swaps the C# side only, and sets the values that differ from the ones already set:
@@ -234,6 +328,10 @@ public sealed class Page : IDisposable
     /// </summary>
     private void Attach(SourceWriter writer, bool keepValues = false)
     {
+        foreach (var notifier in writer.Notifiers)
+        {
+            Observe(notifier);
+        }
         _bindings = writer.Bindings;
         _handlers = writer.Slots.ToDictionary(s => s.Name, s => s.Handler);
         if (keepValues && _values.Length == _bindings.Count)

@@ -160,8 +160,22 @@ fn write_members(out: &mut String, this: &str, members: &[Member], enums: &mut E
     let mut used = BTreeSet::new();
     for member in members {
         let mut method = ident(&member.name);
-        // C# forbids a member named like its class; the constructors of `Text` cover its `text`.
+        // C# forbids a member named like its class; the constructors of `Text` cover its `text`,
+        // and only the descriptor for Bind remains.
         if method == this {
+            if matches!(member.visibility, PropertyVisibility::Input | PropertyVisibility::InOut)
+                && let Some(mapped) = map_type(&member.ty, enums)
+                && used.insert(format!("{method}Property"))
+            {
+                let _ = writeln!(
+                    out,
+                    "    /// <summary>The `{}` property, for <c>Bind</c>.</summary>\n    public static readonly global::Slint.Markup.Property<{}> {method}Property = new({}, {});",
+                    member.name,
+                    mapped.csharp,
+                    string_literal(&member.name),
+                    mapped.slint
+                );
+            }
             continue;
         }
         if ELEMENT_MEMBERS.contains(&method.as_str()) {
@@ -247,6 +261,15 @@ fn write_members(out: &mut String, this: &str, members: &[Member], enums: &mut E
                 let (csharp, slint) = (&mapped.csharp, &mapped.slint);
                 let doc =
                     summary(member.docs.as_deref(), &format!("The `{}` property.", member.name));
+                // For Bind of CommunityToolkit.Maui.Markup's kind, such as `.Bind(LineEdit.TextProperty, (Vm vm) => vm.Name)`.
+                let descriptor = format!("{method}Property");
+                if used.insert(descriptor.clone()) {
+                    let _ = writeln!(
+                        out,
+                        "    /// <summary>The `{}` property, for <c>Bind</c>.</summary>\n    public static readonly global::Slint.Markup.Property<{csharp}> {descriptor} = new({name}, {slint});",
+                        member.name
+                    );
+                }
                 let _ = writeln!(
                     out,
                     "    /// <summary>{doc}</summary>\n    public {this} {method}({csharp} value) {{ SetValue({name}, {slint}, value); return this; }}"
@@ -388,6 +411,18 @@ fn write_class(
                 "    /// <summary>A `{slint_name}` with a text that the page reads again on each update, which runs <paramref name=\"clicked\"/> on a click.</summary>\n    public {class}(global::System.Func<string> text, global::System.Action clicked) : this(text) => OnClicked(clicked);"
             );
         }
+    }
+    let clicked = members.iter().any(|m| {
+        m.name == "clicked"
+            && matches!(&m.ty, Type::Callback(f) if f.args.is_empty() && f.return_type == Type::Void)
+    });
+    if clicked {
+        let enabled = members.iter().any(|m| m.name == "enabled" && m.ty == Type::Bool);
+        let enabled = if enabled { "\"enabled\"" } else { "null" };
+        let _ = writeln!(
+            out,
+            "    /// <summary>Runs a command of the view model on a click, and is enabled while it can run.</summary>\n    public {class} BindCommand<TViewModel>(global::System.Func<TViewModel, global::System.Windows.Input.ICommand> command, global::System.Func<TViewModel, object?>? parameter = null) => global::Slint.Markup.MarkupExtensions.BindCommand(this, command, \"clicked\", {enabled}, parameter);"
+        );
     }
     write_members(out, &class, members, enums);
     let _ = writeln!(out, "}}\n");

@@ -124,7 +124,14 @@ public sealed class ForEach<[DynamicallyAccessedMembers(DynamicallyAccessedMembe
 
     object? IRepeater.Read()
     {
-        Current = [.. items()];
+        var source = items();
+        // A list of a view model, such as an ObservableCollection, and its items update the page when they change.
+        Page.ObserveDuringUpdate(source);
+        Current = [.. source];
+        foreach (var item in Current)
+        {
+            Page.ObserveDuringUpdate(item);
+        }
         return Current.Select(item => StructFields.Value(typeof(T), item)).ToList();
     }
 }

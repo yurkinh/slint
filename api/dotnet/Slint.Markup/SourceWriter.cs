@@ -63,7 +63,9 @@ internal sealed class SourceWriter
         }
         if (root.Type == "Window" && root.Import == null)
         {
+            _context = root.Context;
             WriteContents(root, 1, null);
+            _context = null;
         }
         else
         {
@@ -88,7 +90,29 @@ internal sealed class SourceWriter
         return source.ToString();
     }
 
+    /// <summary>The objects whose notifications update the page: binding contexts, collections, and commands.</summary>
+    public HashSet<object> Notifiers { get; } = new(ReferenceEqualityComparer.Instance);
+
+    private object? _context;
+
+    private object Context(string what) =>
+        _context ?? throw new InvalidOperationException($"{what} binds to a view model, but no element around it has a BindingContext");
+
     private void WriteElement(Element element, int depth, string? rowIndex)
+    {
+        var previous = _context;
+        _context = element.Context ?? _context;
+        try
+        {
+            WriteElementInContext(element, depth, rowIndex);
+        }
+        finally
+        {
+            _context = previous;
+        }
+    }
+
+    private void WriteElementInContext(Element element, int depth, string? rowIndex)
     {
         var indent = new string(' ', depth * 4);
         switch (element)
@@ -135,7 +159,16 @@ internal sealed class SourceWriter
         foreach (var property in element.Properties)
         {
             _body.Append(indent).Append(property.Name);
-            if (property.Get != null)
+            if (property.ContextGet is { } contextGet)
+            {
+                var context = Context($"'{property.Name}'");
+                Notifiers.Add(context);
+                var contextSet = property.ContextSet;
+                var name = Bind(property.Type.Name, property.Type, () => contextGet(context),
+                    contextSet == null ? null : value => contextSet(context, value));
+                _body.Append(contextSet != null ? " <=> root." : ": root.").Append(name);
+            }
+            else if (property.Get != null)
             {
                 var name = Bind(property.Type.Name, property.Type, property.Get, property.Set);
                 _body.Append(property.Set != null ? " <=> root." : ": root.").Append(name);
@@ -178,6 +211,25 @@ internal sealed class SourceWriter
                 if (callback.Statements is { } code)
                 {
                     statements.Add(code.Code);
+                    continue;
+                }
+                if (callback.Command is { } command)
+                {
+                    var context = Context($"The command of '{callback.Name}'");
+                    var parameter = callback.CommandParameter;
+                    Notifiers.Add(command(context));
+                    var slot = $"c{Slots.Count}";
+                    Slots.Add(new Slot(slot, _ =>
+                    {
+                        var value = parameter?.Invoke(context);
+                        var current = command(context);
+                        if (current.CanExecute(value))
+                        {
+                            current.Execute(value);
+                        }
+                    }));
+                    _declarations.Add($"callback {slot}();");
+                    statements.Add($"root.{slot}();");
                     continue;
                 }
                 foreach (var parameter in callback.Parameters.Where(p => p.Import != null))
