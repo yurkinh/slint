@@ -1,14 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-using System.Collections.ObjectModel;
+using System.Collections;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Slint.Markup;
 
-/// <summary>A value whose changes make the <see cref="Component"/> that has it as a field render again.</summary>
+/// <summary>A value whose changes render again the <see cref="Component"/> that read it.</summary>
 public interface ISignal
 {
     /// <summary>Raised after the value changes, on the thread that changed it.</summary>
@@ -16,8 +15,8 @@ public interface ISignal
 }
 
 /// <summary>
-/// A value of a <see cref="Component"/>, such as <c>readonly Signal&lt;int&gt; count = 0;</c>.
-/// Setting <see cref="Value"/> to another value renders the component again.
+/// A value, such as <c>readonly Signal&lt;int&gt; count = 0;</c> in a component or in state that components share.
+/// A component that reads <see cref="Value"/> while it renders, or in a lambda of its tree, renders again when the value changes.
 /// </summary>
 public sealed class Signal<T>(T value) : ISignal
 {
@@ -29,7 +28,11 @@ public sealed class Signal<T>(T value) : ISignal
     /// <summary>The value.</summary>
     public T Value
     {
-        get => _value;
+        get
+        {
+            Component.Track(this);
+            return _value;
+        }
         set
         {
             if (!EqualityComparer<T>.Default.Equals(_value, value))
@@ -44,61 +47,149 @@ public sealed class Signal<T>(T value) : ISignal
     public static implicit operator Signal<T>(T value) => new(value);
 
     /// <inheritdoc />
-    public override string ToString() => _value?.ToString() ?? "";
+    public override string ToString() => Value?.ToString() ?? "";
 }
 
 /// <summary>
-/// A list of a <see cref="Component"/>, whose changes render the component again, such as for a <see cref="ForEach{T}"/>.
+/// A list, such as the items of a <see cref="ForEach{T}"/>, whose changes render again the components that read it, like a <see cref="Signal{T}"/>.
 /// </summary>
-public sealed class SignalList<T> : Collection<T>, ISignal
+public sealed class SignalList<T> : IList<T>, IReadOnlyList<T>, ISignal
 {
+    private readonly List<T> _items;
+
     /// <summary>An empty list.</summary>
-    public SignalList() { }
+    public SignalList() => _items = [];
 
     /// <summary>A list with <paramref name="items"/>.</summary>
-    public SignalList(IEnumerable<T> items) : base([.. items]) { }
+    public SignalList(IEnumerable<T> items) => _items = [.. items];
 
     /// <inheritdoc />
     public event Action? Changed;
 
-    /// <inheritdoc />
-    protected override void InsertItem(int index, T item) { base.InsertItem(index, item); Changed?.Invoke(); }
+    /// <inheritdoc cref="IList{T}.this" />
+    public T this[int index]
+    {
+        get => Read()[index];
+        set
+        {
+            _items[index] = value;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <inheritdoc cref="ICollection{T}.Count" />
+    public int Count => Read().Count;
+
+    bool ICollection<T>.IsReadOnly => false;
 
     /// <inheritdoc />
-    protected override void SetItem(int index, T item) { base.SetItem(index, item); Changed?.Invoke(); }
+    public void Add(T item)
+    {
+        _items.Add(item);
+        Changed?.Invoke();
+    }
 
     /// <inheritdoc />
-    protected override void RemoveItem(int index) { base.RemoveItem(index); Changed?.Invoke(); }
+    public void Insert(int index, T item)
+    {
+        _items.Insert(index, item);
+        Changed?.Invoke();
+    }
 
     /// <inheritdoc />
-    protected override void ClearItems() { base.ClearItems(); Changed?.Invoke(); }
+    public bool Remove(T item)
+    {
+        var removed = _items.Remove(item);
+        if (removed)
+        {
+            Changed?.Invoke();
+        }
+        return removed;
+    }
+
+    /// <inheritdoc />
+    public void RemoveAt(int index)
+    {
+        _items.RemoveAt(index);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Removes the items that match <paramref name="match"/>, and returns how many.</summary>
+    public int RemoveAll(Predicate<T> match)
+    {
+        var removed = _items.RemoveAll(match);
+        if (removed > 0)
+        {
+            Changed?.Invoke();
+        }
+        return removed;
+    }
+
+    /// <summary>Replaces the items with <paramref name="items"/>.</summary>
+    public void Reset(IEnumerable<T> items)
+    {
+        _items.Clear();
+        _items.AddRange(items);
+        Changed?.Invoke();
+    }
+
+    /// <inheritdoc />
+    public void Clear()
+    {
+        _items.Clear();
+        Changed?.Invoke();
+    }
+
+    /// <inheritdoc />
+    public bool Contains(T item) => Read().Contains(item);
+
+    /// <inheritdoc />
+    public int IndexOf(T item) => Read().IndexOf(item);
+
+    /// <inheritdoc />
+    public void CopyTo(T[] array, int arrayIndex) => Read().CopyTo(array, arrayIndex);
+
+    /// <inheritdoc />
+    public IEnumerator<T> GetEnumerator() => Read().GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    private List<T> Read()
+    {
+        Component.Track(this);
+        return _items;
+    }
 }
 
 /// <summary>
 /// A window whose UI <see cref="Render"/> returns, like a view of Comet.
-/// After a handler of the UI, or a change of a <see cref="Signal{T}"/> or <see cref="SignalList{T}"/> field,
-/// the component renders again; the fields are the ones of the component's class, and the ones it inherits that aren't private. A tree with the same <c>.slint</c> source only updates the values;
+/// After a handler of the UI, or a change of a <see cref="Signal{T}"/> or <see cref="SignalList{T}"/> that it read
+/// while it rendered or in a lambda of its tree, the component renders again.
+/// A tree with the same <c>.slint</c> source only updates the values;
 /// a C# condition that changes the tree compiles another source, so prefer <see cref="If"/> and <see cref="ForEach{T}"/>.
 /// </summary>
-[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
 public abstract class Component : IDisposable
 {
     private Page? _page;
     private Component? _host;
-    private bool _subscribed;
     private int _slintThread;
-
-    /// <summary>The component whose page renders, during that, on this thread.</summary>
-    [ThreadStatic]
-    private static Component? t_rendering;
     private bool _dirty;
     private bool _rendering;
+    private bool _expectNewStructure;
+    private readonly HashSet<ISignal> _signals = [];
+
+    /// <summary>The component whose page renders or reads its lambdas, during that, on this thread.</summary>
+    [ThreadStatic]
+    private static Component? t_current;
 
     /// <summary>Returns the UI, from the state of the component.</summary>
     protected abstract Element Render();
 
     /// <summary>The page, which the first use creates.</summary>
     public Page Page => _page ?? CreatePage();
+
+    /// <summary>The <see cref="Markup.Navigation"/> that shows this component, or <c>null</c>.</summary>
+    public Navigation? Navigation { get; internal set; }
 
     /// <summary>Shows the window.</summary>
     public void Show() => Page.Show();
@@ -134,48 +225,71 @@ public abstract class Component : IDisposable
         Refresh();
     }
 
-    /// <summary>Hides the window, and releases the page.</summary>
+    /// <summary>Renders the component again, where another structure is expected, such as after navigation.</summary>
+    internal void InvalidateStructure()
+    {
+        (_host ?? this)._expectNewStructure = true;
+        Invalidate();
+    }
+
+    /// <summary>Hides the window, releases the page, and stops following the signals that the component read.</summary>
     public void Dispose()
     {
+        foreach (var signal in _signals)
+        {
+            signal.Changed -= Invalidate;
+        }
+        _signals.Clear();
         _page?.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>Makes the component that renders, or reads its lambdas, on this thread follow <paramref name="signal"/>.</summary>
+    internal static void Track(ISignal signal)
+    {
+        var current = t_current;
+        if (current != null && current._signals.Add(signal))
+        {
+            signal.Changed += current.Invalidate;
+        }
+    }
+
+    /// <summary>Runs <paramref name="action"/> with this component as the one that follows the signals it reads.</summary>
+    internal T Tracking<T>(Func<T> action)
+    {
+        var previous = t_current;
+        t_current = this;
+        try
+        {
+            return action();
+        }
+        finally
+        {
+            t_current = previous;
+        }
     }
 
     /// <summary>Returns the UI of this component inside the component whose page renders it.</summary>
     internal Element RenderNested()
     {
-        var host = t_rendering ?? throw new InvalidOperationException(
+        var host = t_current ?? throw new InvalidOperationException(
             $"{GetType().Name} is inside the tree of a page that no Component renders; add it to the tree of a Component");
         if (host == this)
         {
             throw new InvalidOperationException($"{GetType().Name} is inside its own tree");
         }
         _host = host;
-        Subscribe();
         return Render();
-    }
-
-    private void Subscribe()
-    {
-        if (_subscribed)
-        {
-            return;
-        }
-        _subscribed = true;
-        foreach (var signal in Signals())
-        {
-            signal.Changed += Invalidate;
-        }
     }
 
     private Page CreatePage()
     {
         _slintThread = Environment.CurrentManagedThreadId;
-        Subscribe();
-        _page = RenderingAsHost(() => Page.Create(Render));
+        _page = Rendering(() => Page.Create(Render));
+        _page.Owner = this;
         _page.AfterHandler = Refresh;
         // A hot reload changes the code, so another structure is expected there.
-        _page.Reload = () => RenderingAsHost(() =>
+        _page.Reload = () => Rendering(() =>
         {
             _page.Rebuild();
             return 0;
@@ -183,20 +297,16 @@ public abstract class Component : IDisposable
         return _page;
     }
 
-    /// <summary>Runs <paramref name="render"/>, which renders the page, with this component as the host of the components inside it.</summary>
-    private T RenderingAsHost<T>(Func<T> render)
+    private T Rendering<T>(Func<T> render)
     {
-        var previous = t_rendering;
-        t_rendering = this;
         _rendering = true;
         try
         {
-            return render();
+            return Tracking(render);
         }
         finally
         {
             _rendering = false;
-            t_rendering = previous;
         }
     }
 
@@ -204,12 +314,14 @@ public abstract class Component : IDisposable
     {
         _dirty = false;
         var before = _page!.Source;
-        RenderingAsHost(() =>
+        var expected = _expectNewStructure;
+        _expectNewStructure = false;
+        Rendering(() =>
         {
             _page.Rebuild();
             return 0;
         });
-        if (_page.Source != before && s_warnOnRecompile)
+        if (_page.Source != before && !expected && s_warnOnRecompile)
         {
             Console.Error.WriteLine(
                 $"{GetType().Name}.Render() returned another structure after a change of state, so the page compiles another source. " +
@@ -224,12 +336,6 @@ public abstract class Component : IDisposable
     // Only in Debug builds of the application, where the warning helps and costs nothing that matters.
     private static readonly bool s_warnOnRecompile =
         Assembly.GetEntryAssembly()?.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled == true;
-
-    /// <summary>The signals in the fields of the component's class, and the fields it inherits that aren't private.</summary>
-    private IEnumerable<ISignal> Signals() =>
-        GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(field => typeof(ISignal).IsAssignableFrom(field.FieldType))
-            .Select(field => field.GetValue(this)).OfType<ISignal>();
 }
 
 /// <summary>A <see cref="Component"/> whose state is a <typeparamref name="TState"/>, which <see cref="SetState(Action{TState})"/> changes.</summary>
@@ -250,5 +356,51 @@ public abstract class Component<TState> : Component where TState : new()
     {
         State = state;
         Invalidate();
+    }
+}
+
+/// <summary>
+/// A stack of pages, such as the pages of a tab: it shows the top one,
+/// and the pages that it shows <see cref="Push"/> others, such as a page with the details of an item, and <see cref="Pop"/> back.
+/// Keep it in a field of the component that shows it, like other components inside a component.
+/// Each combination of pages compiles once; the window is a new one after a change of page, at the same place.
+/// </summary>
+public sealed class Navigation : Component
+{
+    private readonly Stack<Component> _pages = new();
+
+    /// <summary>A stack with the page <paramref name="root"/>.</summary>
+    public Navigation(Component root) => Add(root);
+
+    /// <summary>The page on top.</summary>
+    public Component Current => _pages.Peek();
+
+    /// <summary>How many pages the stack has, with the first one.</summary>
+    public int Depth => _pages.Count;
+
+    /// <summary>Shows <paramref name="page"/> on top.</summary>
+    public void Push(Component page)
+    {
+        Add(page);
+        InvalidateStructure();
+    }
+
+    /// <summary>Goes back to the page below, and releases the top one; the first page stays.</summary>
+    public void Pop()
+    {
+        if (_pages.Count > 1)
+        {
+            _pages.Pop().Dispose();
+            InvalidateStructure();
+        }
+    }
+
+    /// <inheritdoc />
+    protected override Element Render() => new VerticalLayout { Current };
+
+    private void Add(Component page)
+    {
+        page.Navigation = this;
+        _pages.Push(page);
     }
 }

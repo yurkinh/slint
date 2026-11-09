@@ -127,6 +127,102 @@ public sealed class ComponentTests
         StringAssert.Contains(error.Message, "Orphan");
     });
 
+    private sealed class SharedState
+    {
+        public readonly Signal<string> Name = "Ada";
+    }
+
+    private sealed class Greeting(SharedState shared) : Component
+    {
+        protected override Element Render() => new Text(() => $"Hello, {shared.Name.Value}");
+    }
+
+    private sealed class ListPage : Component
+    {
+        protected override Element Render() => new VerticalBox
+        {
+            new Text("List"),
+            new Button("Open", () => Navigation!.Push(new DetailPage())),
+        };
+    }
+
+    private sealed class DetailPage : Component
+    {
+        private readonly Signal<int> _views = 0;
+
+        protected override Element Render() => new VerticalBox
+        {
+            new Text(() => $"Detail {_views.Value}"),
+            new Button("Back", () => Navigation!.Pop()),
+            new Button("View", () => _views.Value++),
+        };
+    }
+
+    private sealed class Tabs : Component
+    {
+        public readonly Navigation First = new(new ListPage());
+        private readonly Signal<int> _tab = 0;
+
+        public int Tab => _tab.Value;
+
+        protected override Element Render() => new TabWidget
+        {
+            new Tab("First") { First },
+            new Tab("Second") { new ComboBox().Model(["Low", "High"]).CurrentValue("Low") },
+        }.CurrentIndex(() => _tab.Value, index => _tab.Value = index);
+    }
+
+    [TestMethod]
+    public void FollowsSignalsOfStateThatComponentsShare() => SlintThread.Run(() =>
+    {
+        var shared = new SharedState();
+        using var first = new Greeting(shared);
+        using var second = new Greeting(shared);
+        Assert.AreEqual("Hello, Ada", first.Page.Instance.GetProperty("p0"));
+        Assert.AreEqual("Hello, Ada", second.Page.Instance.GetProperty("p0"));
+        shared.Name.Value = "Grace";
+        Assert.AreEqual("Hello, Grace", first.Page.Instance.GetProperty("p0"));
+        Assert.AreEqual("Hello, Grace", second.Page.Instance.GetProperty("p0"));
+    });
+
+    [TestMethod]
+    public void NavigatesBetweenPagesInATab() => SlintThread.Run(() =>
+    {
+        var error = new StringWriter();
+        var previous = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            using var tabs = new Tabs();
+            var page = tabs.Page;
+            StringAssert.Contains(page.Source, "Tab {");
+            StringAssert.Contains(page.Source, "model: [\"Low\", \"High\"];");
+            var listSource = page.Source;
+
+            // p0: the current index, c0: Open.
+            page.Instance.SetProperty("p0", 1);
+            Testing.MockElapsedTime(0);
+            Assert.AreEqual(1, tabs.Tab);
+            page.Instance.Invoke("c0");
+            Assert.AreEqual(2, tabs.First.Depth);
+            StringAssert.Contains(page.Source, "text: \"Back\";");
+            // The new instance shows the tab that was current.
+            Assert.AreEqual(1.0, page.Instance.GetProperty("p0"));
+
+            // Detail: c0 Back, c1 View.
+            page.Instance.Invoke("c1");
+            Assert.AreEqual("Detail 1", page.Instance.GetProperty("p1"));
+            page.Instance.Invoke("c0");
+            Assert.AreEqual(1, tabs.First.Depth);
+            Assert.AreEqual(listSource, page.Source);
+            Assert.AreEqual("", error.ToString());
+        }
+        finally
+        {
+            Console.SetError(previous);
+        }
+    });
+
     [TestMethod]
     public void RendersAgainAfterAHandlerWithoutCompilingAgain() => SlintThread.Run(() =>
     {

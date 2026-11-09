@@ -1067,8 +1067,27 @@ Next:
           a builder for such a clickable shape would save that.
         - Slint has no margin, so spacing and padding go on the layouts.
         - The fonts that Slint embeds have no undo arrow, where Comet shows an image.
-    - Phase 7, next: the other samples of Comet, such as the task app with navigation between pages,
-      which needs more than one page per window or a navigation element.
+    - Phase 7, done on 2026-11-09:
+      - A signal registers with the component that reads it while it renders, or while its page reads the lambdas,
+        so signals in state that components share work, like Comet's `[State]`, and `Component` needs no reflection.
+        `SignalList<T>` is a list of its own whose reads register too; a disposed component stops following them.
+      - `Navigation` is a component with a stack of pages, which a page reaches through `Component.Navigation`:
+        `Push` and `Pop` render the window again, without the warning about another structure.
+        Each combination of pages compiles once, and the page replaces the window, at its place and size.
+      - `Tab` is the child of a `TabWidget`, and `[string]` properties, such as the model of a `ComboBox`, take a list of strings.
+      - A two-way binding keeps the value of the UI in the type that C# sets, since Slint returns numbers as doubles,
+        so the next update doesn't set it again.
+      - `examples/tasks/dotnet-markup` ports the task app of Comet: tabs, a stack for the tasks, a list with search and filters,
+        forms with `ComboBox`, statistics, and settings.
+        Driven through its callbacks, it opens, edits, and saves a task, toggles one, adds one after the error of an empty title,
+        filters by category, and clears the completed ones, with three compiled sources and no warning.
+      - What the port showed:
+        - The items of a `ForEach` can't have a C# enum or a `DateTime`, so the list maps the tasks to rows of strings, colors, and numbers.
+        - Comet's `TaskItem` changes in place, which a `SignalList` doesn't see, so it's a record that the state replaces.
+        - The sample's colors are for a light theme, so the port sets `Page.Style = "fluent-light"`.
+        - A new window per page loses what the window shows that C# doesn't bind, such as the scrolling of a list.
+          Slint's `ComponentContainer` could swap the page inside the window instead, once it's no longer experimental.
+    - Phase 8, next: the other samples of Comet, such as the mail app and the controls gallery.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,

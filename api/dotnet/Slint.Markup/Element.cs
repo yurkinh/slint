@@ -41,6 +41,8 @@ public sealed class SlintType
     public static SlintType Duration { get; } = new("duration", true);
     /// <summary><c>angle</c>, from a <c>double</c> in degrees</summary>
     public static SlintType Angle { get; } = new("angle", true);
+    /// <summary><c>[string]</c>, such as the items of a <c>ComboBox</c>, from a list of strings</summary>
+    public static SlintType StringArray { get; } = new("[string]", true);
     /// <summary><c>image</c>, from a <see cref="Slint.Image"/></summary>
     public static SlintType Image { get; } = new("image", false);
 

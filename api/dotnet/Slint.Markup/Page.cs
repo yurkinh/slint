@@ -66,6 +66,9 @@ public sealed class Page : IDisposable
     /// <summary>What runs after a handler of the page, or a change of the UI that a two-way binding passes on: <see cref="Update"/> unless a <see cref="Component"/> sets it.</summary>
     internal Action? AfterHandler { get; set; }
 
+    /// <summary>The component that renders the page, which follows the signals that the lambdas read.</summary>
+    internal Component? Owner { get; set; }
+
     /// <summary>What a hot reload runs instead of <see cref="Rebuild"/>, for a <see cref="Component"/>.</summary>
     internal Action? Reload { get; set; }
 
@@ -157,6 +160,22 @@ public sealed class Page : IDisposable
     /// <summary>Reads the lambdas of the tree again, and sets the properties whose values changed.</summary>
     public void Update()
     {
+        if (Owner != null)
+        {
+            Owner.Tracking(() =>
+            {
+                SetChangedValues();
+                return 0;
+            });
+        }
+        else
+        {
+            SetChangedValues();
+        }
+    }
+
+    private void SetChangedValues()
+    {
         for (var i = 0; i < _bindings.Count; i++)
         {
             var binding = _bindings[i];
@@ -240,7 +259,8 @@ public sealed class Page : IDisposable
             _watches.Add(instance.WatchProperty(_bindings[index].Name, () =>
             {
                 var value = instance.GetProperty(_bindings[index].Name);
-                _values[index] = value;
+                // Slint returns numbers as doubles; keep the value as Update converts it, so it compares equal.
+                _values[index] = ToSlint(_bindings[index].Scalar, value);
                 Handle(() => _bindings[index].Set!(value));
             }));
         }

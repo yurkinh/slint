@@ -205,6 +205,7 @@ internal sealed class SourceWriter
     private static string Literal(SlintType type, object value) => value switch
     {
         string text when type == SlintType.String => Quote(text),
+        IEnumerable<string> items when type == SlintType.StringArray => "[" + string.Join(", ", items.Select(Quote)) + "]",
         bool b when type == SlintType.Bool => b ? "true" : "false",
         Color c when type == SlintType.Color || type == SlintType.Brush => $"#{c.Red:x2}{c.Green:x2}{c.Blue:x2}{c.Alpha:x2}",
         TimeSpan d when type == SlintType.Duration => Number(d.TotalMilliseconds) + "ms",

@@ -92,6 +92,10 @@ fn map_type(ty: &Type, enums: &mut Enums) -> Option<Mapped> {
         Type::Duration => ("global::System.TimeSpan".into(), "Duration".into()),
         Type::Angle => ("double".into(), "Angle".into()),
         Type::Image => ("global::Slint.Image".into(), "Image".into()),
+        Type::Array(item) if **item == Type::String => (
+            "global::System.Collections.Generic.IReadOnlyList<string>".into(),
+            "StringArray".into(),
+        ),
         Type::Enumeration(e) => {
             let import =
                 if e.node.is_some() { format!(", {}", enums.import) } else { String::new() };

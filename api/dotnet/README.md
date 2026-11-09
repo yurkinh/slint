@@ -472,13 +472,29 @@ sealed class Counter : Component
 
 - A value, such as `.FontSize(24)`, doesn't change.
   A lambda, such as `() => $"Count: {_count.Value}"`, becomes a property, which the page sets again after a change.
-- After a handler, or a change of a `Signal<T>` or `SignalList<T>` field, the component calls `Render()` again.
+- After a handler, or a change of a `Signal<T>` or `SignalList<T>` that it read while it rendered or in a lambda,
+  the component calls `Render()` again; the signals can be in state that components share.
   The same tree only updates the values; a tree that a C# condition changes compiles another page,
   so use `If` and `ForEach` for parts that come and go.
   A Debug build writes a warning when that happens.
 - `Component<TState>` has a `State`, which `SetState(s => s.Name = name)` changes.
 - A component can show other components, which keep their own state, such as fields of the parent:
   `new HorizontalBox { _left, _right }`. A change of a child renders the window that shows it.
+- `Navigation` is a stack of pages, such as the pages of a tab of a `TabWidget`;
+  a page calls `Navigation.Push(new DetailPage(id))` and `Navigation.Pop()`:
+
+  ```csharp
+  private readonly Navigation _tasks = new(new TaskListPage());
+
+  protected override Element Render() => new TabWidget
+  {
+      new Tab("Tasks") { _tasks },
+      new Tab("Settings") { _settings },
+  }.CurrentIndex(() => _tab.Value, index => _tab.Value = index);
+  ```
+
+  Each combination of pages compiles once, and the window after a change of page is a new one at the same place,
+  so bind state that the window shows, such as the current tab, as above.
 - An `in-out` property binds both ways, such as `new LineEdit().Text(() => _name.Value, text => _name.Value = text)`.
 - `ForEach` repeats a template for each item, and `If` shows its child while a condition holds:
 
@@ -508,7 +524,7 @@ so the next start reads it in under a millisecond instead of compiling it again.
 `Page.Style` sets the widget style of the pages.
 Hot reload of the C# code renders the components again: a changed value keeps the window, and a changed structure replaces it.
 `examples/todo/dotnet-markup` is the todo example in C#,
-and `examples/digits/dotnet-markup` the Digits game of [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), ported.
+and `examples/digits/dotnet-markup` and `examples/tasks/dotnet-markup` the Digits game and the task app of [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), ported.
 
 Builders whose names clash with types that apps import, such as `Window`, `Image`, and `Path`, end in `Element`, such as `WindowElement`.
 The package works with trimming and Native AOT.
