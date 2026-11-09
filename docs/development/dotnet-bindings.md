@@ -1123,7 +1123,7 @@ Next:
         inside an `if` or a `for`, with "PopupWindow cannot be directly repeated or conditional", while a plain `PopupWindow` works there.
         `lower_popups` reports a popup that is the root of its component, which such a component's popup is.
         `Component.Popups()` works around it: the page puts the popups of its components at its root, where the tree reaches them by id.
-        The limitation isn't reported upstream yet.
+        Reported upstream as [#14856](https://github.com/slint-ui/slint/issues/14856).
     - Phase 10, done on 2026-11-09: the front end like CommunityToolkit.Maui.Markup, below.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), done on 2026-11-09 as phase 10,
     with its own notifications rather than the `ViewModelBinding` of item 25, since the page reads the lambdas:
