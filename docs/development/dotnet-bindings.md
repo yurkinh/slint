@@ -941,7 +941,7 @@ Next:
   - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
     so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
-- **26.** Postponed: UI written in C#, with a shared core and two front ends.
+- **26.** UI written in C#, with a shared core and two front ends.
   Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
   which the interpreter compiles once per page, and C# then sets the page's properties.
   Measured on an Apple Silicon Mac with the release build, see item 27: a page without the standard widgets compiles in 1 ms,
@@ -949,6 +949,26 @@ Next:
   - The core, 2.5–3 weeks, from a 3–4 day spike: typed builders, generated from the elements and widgets of the compiler,
     layout helpers, a cache of compiled pages, `.slint` components and raw expressions as escape hatches,
     and hot reload through a .NET metadata update handler.
+    - Phase 0, the spike, done on 2026-11-09 in `api/dotnet/Slint.Markup`, with `MarkupTests` and `examples/todo/dotnet-markup`:
+      - `Page.Create(tree)` writes the tree as the source of one component, compiles it, and caches the definition by its source.
+        A lambda becomes an `in` property of the root, and a handler a callback of the root, which forwards to C#.
+        After a handler, or on `Update()`, the page reads the lambdas again and sets the properties that changed.
+      - A two-way binding is `<=>` to an `in-out` property, which `WatchProperty` reports back to C#.
+        `ForEach<T>` is Slint's `for` over a struct model from `T`'s properties, and `row.Do` gives a handler the row's item;
+        `If` is Slint's `if`. So the page compiles once, whatever the data.
+      - The todo example in C# renders like the `.slint` one, with nine hand-written builders.
+      - Release build, Apple Silicon Mac: compiling a page with `VerticalBox`, `Button`, `CheckBox`, and a `ForEach` takes 16 to 19 ms
+        in a warm process, and a page from the cache 0.1 to 0.2 ms.
+        The first page of a process takes 80 to 170 ms, with the first call into Slint.
+      - Found: `Window` clashes with `Slint.Window` in code that uses both namespaces;
+        a page compiles without an edition, so the compiler says so;
+        and `\{` in a string starts an interpolation, so only `"` and `\` need escaping.
+    - Phase 1, 1 week: builders generated from the compiler's built-in elements and the standard widgets,
+      with overloads for a value, a lambda, and an `Expr`, typed callback arguments, enums, and a name for the window that doesn't clash.
+    - Phase 2, 1 week: a disk cache of compiled pages, with `llr::bundle` of item 27, for the first page of a process;
+      the edition; and hot reload, where `Page.Create(Func<Element>)` builds the tree again after a metadata update.
+    - Phase 3, 3–4 days: `.slint` components as elements, `GridLayout` rows and columns, nested structs in rows,
+      and two-way bindings in rows.
   - The front end like [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), 2–3 weeks:
     `Component<TState>`, `Render()`, lambdas in the constructors of controls, `SetState`, `Signal<T>`, and `SignalList<T>`.
     A lambda becomes a property, which C# updates after `SetState`.

@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Slint/Slint.csproj" />
+    <ProjectReference Include="../Slint.Markup/Slint.Markup.csproj" />
   </ItemGroup>
   <ItemGroup>
     <SlintFile Include="ui/generated.slint" />
