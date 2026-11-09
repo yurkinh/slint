@@ -1,6 +1,13 @@
 <!-- cSpell: ignore xplat yurkinh -->
 # What's New in Slint for .NET
 
+## 1.19.0-preview.13
+
+- Write the UI in C# with the new package `Slint.Markup`: a component returns its UI from `Render()`,
+  with builders for every element and widget, and renders again after a change of a `Signal<T>` or of its state.
+  The pages compile once, and the next start reads them from a cache.
+  `dotnet new slint --markup` creates such an app. See [UI Written in C#](README.md#ui-written-in-c-preview).
+
 ## 1.19.0-preview.12
 
 - Publish a desktop app as one file: `SlintEmbedFiles` embeds the `.slint` files in the assembly,

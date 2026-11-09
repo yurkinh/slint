@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -26,7 +27,7 @@ public sealed class RowAction
 }
 
 /// <summary>The row of a <see cref="ForEach{T}"/>, for the template to refer to the item's fields.</summary>
-public sealed class Row<T>
+public sealed class Row<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>
 {
     private readonly ForEach<T> _owner;
 
@@ -107,7 +108,7 @@ internal interface IRepeater
 /// and may be <c>string</c>, <c>bool</c>, <c>int</c>, <c>float</c>, <c>double</c>, <see cref="Color"/>, <see cref="TimeSpan"/>,
 /// <see cref="Image"/>, an enum of the builders, or another type with such properties, which becomes a nested struct.
 /// </summary>
-public sealed class ForEach<T>(Func<IEnumerable<T>> items, Func<Row<T>, Element> template) : Element("for"), IRepeater
+public sealed class ForEach<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Func<IEnumerable<T>> items, Func<Row<T>, Element> template) : Element("for"), IRepeater
 {
     /// <summary>Repeats the template for each item of <paramref name="items"/>, such as a <see cref="SignalList{T}"/>, which the page reads again on each update.</summary>
     public ForEach(IEnumerable<T> items, Func<Row<T>, Element> template) : this(() => items, template) { }
@@ -128,6 +129,8 @@ public sealed class ForEach<T>(Func<IEnumerable<T>> items, Func<Row<T>, Element>
 /// <summary>Maps the public properties of a C# type to the fields of a <c>.slint</c> struct.</summary>
 internal static class StructFields
 {
+    // The struct type and its values come from the same properties, so one that trimming removed is missing from both.
+    [UnconditionalSuppressMessage("Trimming", "IL2070", Justification = "The type and the values of a struct agree on the properties that trimming keeps.")]
     private static PropertyInfo[] Fields(Type type) => type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
     private static bool IsStruct(Type type) =>
@@ -162,8 +165,8 @@ internal static class StructFields
 
     /// <summary>The <c>.slint</c> name of an enum that the builders, or the generated code, registered.</summary>
     private static string EnumName(Type type) =>
-        Enum.GetValues(type).Length > 0
-        && Slint.Generated.Conversion.TryToSlint(Enum.GetValues(type).GetValue(0)!, out var converted)
+        Enum.GetValuesAsUnderlyingType(type) is { Length: > 0 } values
+        && Slint.Generated.Conversion.TryToSlint(Enum.ToObject(type, values.GetValue(0)!), out var converted)
         && converted is EnumValue value
             ? value.EnumName
             : throw new NotSupportedException($"The enum {type} isn't one of a .slint file");

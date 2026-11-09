@@ -86,6 +86,12 @@ public sealed class Page : IDisposable
     /// </summary>
     public static string? CacheDirectory { get; set; } = DefaultCacheDirectory();
 
+    /// <summary>
+    /// The style of the widgets, such as <c>fluent</c> or <c>material</c>, or <c>null</c> for the platform's style.
+    /// Set it before the first page; pages of a process share their compiled sources.
+    /// </summary>
+    public static string? Style { get; set; }
+
     /// <summary>Creates a page from <paramref name="root"/>, a <see cref="WindowElement"/> or an element that the page puts in one.</summary>
     /// <exception cref="SlintException">The source doesn't compile, such as for an expression with an error.</exception>
     public static Page Create(Element root) => new(null, root);
@@ -267,6 +273,10 @@ public sealed class Page : IDisposable
         }
         var stopwatch = Stopwatch.StartNew();
         s_compiler ??= new Compiler();
+        if (Style != null && s_compiler.Style != Style)
+        {
+            s_compiler.Style = Style;
+        }
         var file = CacheDirectory is { } directory ? Path.Combine(directory, Key(source, imports) + ".unit") : null;
         var origin = PageOrigin.DiskCache;
         var result = file != null ? ReadCached(file) : null;

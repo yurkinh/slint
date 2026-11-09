@@ -440,6 +440,77 @@ Change a collection on the Slint thread.
 `examples/mvvm/dotnet` binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) to a Slint UI,
 one global per page: `ObservableObject`, `RelayCommand`, `AsyncRelayCommand`, the messenger, a collection, and a validated form.
 
+## UI Written in C# (Preview)
+
+Write the UI in C# instead of a `.slint` file, with the package `Slint.Markup`, which references `Slint`:
+
+```sh
+dotnet add package Slint.Markup
+```
+
+A component returns its UI from `Render()`, with a builder for each element and widget:
+
+```csharp
+using Slint.Markup;
+
+using var app = new Counter();
+app.Run();
+
+sealed class Counter : Component
+{
+    private readonly Signal<int> _count = 0;
+
+    protected override Element Render() => new VerticalBox
+    {
+        new Text(() => $"Count: {_count.Value}").FontSize(24),
+        new Button("Add", () => _count.Value++),
+    };
+}
+```
+
+`dotnet new slint --markup` creates such an app.
+
+- A value, such as `.FontSize(24)`, doesn't change.
+  A lambda, such as `() => $"Count: {_count.Value}"`, becomes a property, which the page sets again after a change.
+- After a handler, or a change of a `Signal<T>` or `SignalList<T>` field, the component calls `Render()` again.
+  The same tree only updates the values; a tree that a C# condition changes compiles another page,
+  so use `If` and `ForEach` for parts that come and go.
+  A Debug build writes a warning when that happens.
+- `Component<TState>` has a `State`, which `SetState(s => s.Name = name)` changes.
+- An `in-out` property binds both ways, such as `new LineEdit().Text(() => _name.Value, text => _name.Value = text)`.
+- `ForEach` repeats a template for each item, and `If` shows its child while a condition holds:
+
+  ```csharp
+  new ForEach<Todo>(_todos, row => new HorizontalLayout
+  {
+      new CheckBox(row.Get(t => t.Title))
+          .Checked(row.Bind(t => t.Done, (todo, done) => _todos[_todos.IndexOf(todo)] = todo with { Done = done })),
+      new Button("Remove").OnClicked(row.Do(todo => _todos.Remove(todo))),
+  }),
+  new If(() => _todos.Count == 0) { new Text("Nothing to do") },
+  ```
+
+  `row.Get` reads a field of the item, also of a record in it; `row.Bind` also passes the user's changes back, and `row.Do` handles a callback.
+- `new Expr("parent.width / 2")` sets a property to a `.slint` expression, and `.Property(name, type, value)` sets one that a builder lacks.
+- The components of your own `.slint` files get builders too:
+
+  ```xml
+  <SlintFile Include="ui/card.slint" Markup="true" />
+  ```
+
+  The build generates a builder for each component that the file exports, in the project's namespace,
+  and the pages import the file from the output directory.
+
+Pages compile their `.slint` code once, and keep the result in `Page.CacheDirectory`,
+so the next start reads it in under a millisecond instead of compiling it again.
+`Page.Style` sets the widget style of the pages.
+Hot reload of the C# code renders the components again: a changed value keeps the window, and a changed structure replaces it.
+`examples/todo/dotnet-markup` is the todo example in C#.
+
+Builders whose names clash with types that apps import, such as `Window`, `Image`, and `Path`, end in `Element`, such as `WindowElement`.
+The package works with trimming and Native AOT.
+Components of your own `.slint` files don't work with `SlintEmbedFiles` yet, so not on Android, iOS, or in the browser.
+
 ## Timers and Async Code
 
 Use `Slint.Timer` to run code after a delay, or repeatedly:

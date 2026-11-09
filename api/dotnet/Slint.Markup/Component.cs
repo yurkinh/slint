@@ -3,6 +3,7 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Slint.Markup;
@@ -76,9 +77,10 @@ public sealed class SignalList<T> : Collection<T>, ISignal
 /// <summary>
 /// A window whose UI <see cref="Render"/> returns, like a view of Comet.
 /// After a handler of the UI, or a change of a <see cref="Signal{T}"/> or <see cref="SignalList{T}"/> field,
-/// the component renders again. A tree with the same <c>.slint</c> source only updates the values;
+/// the component renders again; the fields are the ones of the component's class, and the ones it inherits that aren't private. A tree with the same <c>.slint</c> source only updates the values;
 /// a C# condition that changes the tree compiles another source, so prefer <see cref="If"/> and <see cref="ForEach{T}"/>.
 /// </summary>
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.NonPublicFields)]
 public abstract class Component : IDisposable
 {
     private Page? _page;
@@ -177,19 +179,11 @@ public abstract class Component : IDisposable
     private static readonly bool s_warnOnRecompile =
         Assembly.GetEntryAssembly()?.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled == true;
 
-    private IEnumerable<ISignal> Signals()
-    {
-        for (var type = GetType(); type != typeof(Component); type = type.BaseType!)
-        {
-            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-            {
-                if (typeof(ISignal).IsAssignableFrom(field.FieldType) && field.GetValue(this) is ISignal signal)
-                {
-                    yield return signal;
-                }
-            }
-        }
-    }
+    /// <summary>The signals in the fields of the component's class, and the fields it inherits that aren't private.</summary>
+    private IEnumerable<ISignal> Signals() =>
+        GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(field => typeof(ISignal).IsAssignableFrom(field.FieldType))
+            .Select(field => field.GetValue(this)).OfType<ISignal>();
 }
 
 /// <summary>A <see cref="Component"/> whose state is a <typeparamref name="TState"/>, which <see cref="SetState(Action{TState})"/> changes.</summary>

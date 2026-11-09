@@ -44,6 +44,13 @@
       "description": "Binds the window to a view model of CommunityToolkit.Mvvm instead of handling its callback in Program.cs.",
       "defaultValue": "false"
     },
+    "markup": {
+      "type": "parameter",
+      "datatype": "bool",
+      "displayName": "UI in C#",
+      "description": "Writes the UI in C# with Slint.Markup, as a component like Comet's, instead of in a .slint file.",
+      "defaultValue": "false"
+    },
     "skipRestore": {
       "type": "parameter",
       "datatype": "bool",
@@ -61,7 +68,10 @@
   },
   "sources": [
     {
-      "modifiers": [{ "condition": "(!mvvm)", "exclude": ["MainViewModel.cs"] }]
+      "modifiers": [
+        { "condition": "(!mvvm || markup)", "exclude": ["MainViewModel.cs"] },
+        { "condition": "(markup)", "exclude": ["ui/**"] }
+      ]
     }
   ],
   "primaryOutputs": [

@@ -1034,10 +1034,23 @@ Next:
       - The generator adds Comet's constructors, such as `new Button("Add", () => count.Value++)`, to builders with `text` and `clicked`,
         and `row.Item` refers to an item without fields, such as a string.
       - `examples/todo/dotnet-markup` is a `Component` with a `SignalList<Todo>` and a `Signal<string>`.
-    - Phase 5, 1 week: `Slint.Markup` as a package, compatible with trimming and Native AOT, which the reflection on fields and items isn't yet;
-      a README section and a template, `dotnet new slint --markup`; and the samples of Comet ported, for what the API misses.
-    - Phase 6, 1 week: components inside components, each with its own state, as `.slint` components that a parent page creates,
-      and component files on Android, iOS, and in the browser, through `SlintEmbedFiles`.
+    - Phase 5, done on 2026-11-09:
+      - `Slint.Markup` packs as `<package ID>.Markup`, which depends on the `Slint` package with its build files,
+        so an app that references only it gets `Slint.targets` too.
+        The pack job generates the builders with the Linux `slint-compiler` of the artifacts.
+      - `IsAotCompatible` is on: `Component` declares the fields that it reads, `ForEach<T>` the properties of `T`,
+        and the nested records of items are read with a justified suppression, since their struct type and values come from the same properties.
+        Signals are the fields of the component's class, and the inherited ones that aren't private.
+      - The todo example published with Native AOT renders, with its rows and signals.
+      - The publish workflow builds an app from the package with a `Markup="true"` file, clicks it through `Invoke`,
+        and runs it again published with Native AOT; the same steps passed locally with packages packed for macOS.
+      - `dotnet new slint --markup` writes the window as a component in `Program.cs`, without `ui/`,
+        with `Page.Style` for `--style`; the app from local packages ran published with Native AOT.
+      - The README has a section "UI Written in C#", the package its own README, and What's New an entry for preview 13.
+      - Not done: the samples of Comet ported, which move to phase 6.
+    - Phase 6, 1 week: components inside components, each with its own state, as `.slint` components that a parent page creates;
+      component files on Android, iOS, and in the browser, through `SlintEmbedFiles`;
+      and the samples of Comet ported, for what the API misses.
   - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,

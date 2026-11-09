@@ -5,14 +5,20 @@
   <PropertyGroup>
     <RootNamespace>Slint.Markup</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IsPackable>false</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <PackageId>$(SlintPackageId).Markup</PackageId>
+    <Description>$(SlintDescriptionPrefix)UI written in C# for Slint: builders of the elements and widgets, components like Comet's, and signals, which compile to .slint code.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);markup;mvu</PackageTags>
   </PropertyGroup>
   <PropertyGroup>
     <SlintCopyToOutput>false</SlintCopyToOutput>
     <SlintPrecompile>false</SlintPrecompile>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Slint/Slint.csproj" />
+    <!-- The apps that reference this package get the build files of Slint too, for <SlintFile> and the native libraries. -->
+    <ProjectReference Include="../Slint/Slint.csproj" PrivateAssets="none" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
   <!-- The builders, generated from the built-in elements and the widgets that widgets.slint imports. -->
   <ItemGroup>

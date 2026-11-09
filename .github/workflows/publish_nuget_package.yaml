@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform and the browser, and the templates package,
+# Builds the Slint, Slint.Compiler, and Slint.Markup NuGet packages with the native binaries of every platform and the browser, and the templates package,
 # checks that projects, and apps from the templates, can build and run with them, and optionally publishes them to nuget.org.
 
 name: Build and publish the NuGet packages
@@ -178,7 +178,7 @@ jobs:
                               "-p:SlintPackageAuthors=${{ vars.SLINT_NUGET_AUTHORS || github.repository_owner }}"
                               -p:SlintPackageRepositoryUrl="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
                       # The README of the packages installs them by ID.
-                      sed -i "s/dotnet add package Slint /dotnet add package $SLINT_PACKAGE_ID /" README.md
+                      sed -i -e "s/dotnet add package Slint /dotnet add package $SLINT_PACKAGE_ID /" -e "s/dotnet add package Slint.Markup/dotnet add package $SLINT_PACKAGE_ID.Markup/" README.md
                       { head -n 1 README.md
                         printf '\n> This is a community build of the Slint .NET bindings, not published by the Slint project.\n'
                         tail -n +2 README.md; } > README.community.md
@@ -186,6 +186,9 @@ jobs:
                   fi
                   dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
                   dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true -p:SlintIOSFramework="$GITHUB_WORKSPACE/artifacts/ios/slint_dotnet.xcframework" -p:SlintBrowserLibrary="$GITHUB_WORKSPACE/artifacts/browser/slint_dotnet.a"
+                  # Slint.Markup generates its builders with slint-compiler at build time.
+                  chmod +x "$GITHUB_WORKSPACE/artifacts/compiler/linux-x64/slint-compiler"
+                  dotnet pack Slint.Markup -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerPath="$GITHUB_WORKSPACE/artifacts/compiler/linux-x64/slint-compiler"
                   dotnet pack Templates -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}"
             - uses: actions/upload-artifact@v7
               with:
@@ -235,6 +238,52 @@ jobs:
                   # Without the .slint file next to it, the app runs the unit that the build compiled it to.
                   rm "$(find bin -name app.slint | head -1)"
                   dotnet run --no-build
+            - name: Build and run a project with the Markup package and Native AOT
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  mkdir markup && cd markup
+                  dotnet new console
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package "$SLINT_PACKAGE_ID.Markup" --version "$version"
+                  mkdir ui
+                  printf 'export component Badge inherits Rectangle { in property <string> label; Text { text: root.label; } }\n' > ui/badge.slint
+                  sed -i.bak 's#</Project>#<ItemGroup><SlintFile Include="ui/badge.slint" Markup="true" /></ItemGroup></Project>#' markup.csproj
+                  cat > Program.cs <<'EOF'
+                  using Slint.Markup;
+
+                  static class Program
+                  {
+                      [System.STAThread]
+                      static int Main()
+                      {
+                          Page.CacheDirectory = null;
+                          using var counter = new Counter();
+                          var instance = counter.Page.Instance;
+                          instance.Invoke("c0");
+                          if ((string?)instance.GetProperty("p0") != "Count: 1" || (string?)instance.GetProperty("p1") != "odd") return 1;
+                          System.Console.WriteLine("ok");
+                          return 0;
+                      }
+                  }
+
+                  sealed class Counter : Component
+                  {
+                      private readonly Signal<int> _count = 0;
+
+                      protected override Element Render() => new VerticalBox
+                      {
+                          new Text(() => $"Count: {_count.Value}"),
+                          new markup.Badge().Label(() => _count.Value % 2 == 0 ? "even" : "odd"),
+                          new Button("Add", () => _count.Value++),
+                      };
+                  }
+                  EOF
+                  dotnet run
+                  dotnet publish -c Release --use-current-runtime -p:PublishAot=true -o aot
+                  ./aot/markup
             - name: Build apps from the templates with the packages
               shell: bash
               run: |
@@ -250,6 +299,8 @@ jobs:
                   dotnet publish Desktop -c Release --use-current-runtime
                   dotnet new slint -o Mvvm --mvvm --no-restore
                   dotnet build Mvvm
+                  dotnet new slint -o Markup --markup --no-restore
+                  dotnet build Markup
                   dotnet new slint-xplat -o XPlat --platforms desktop --no-restore
                   dotnet build XPlat/XPlat.slnx
 
