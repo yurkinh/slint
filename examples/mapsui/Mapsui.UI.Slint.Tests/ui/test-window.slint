@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MapsuiView } from "@mapsui";
+export { MapsuiHost } from "@mapsui";
+
+// Two maps side by side, of 200 by 300 logical pixels each.
+export component TestWindow inherits Window {
+    width: 400px;
+    height: 300px;
+    HorizontalLayout {
+        MapsuiView { view-id: 0; }
+        MapsuiView { view-id: 1; }
+    }
+}

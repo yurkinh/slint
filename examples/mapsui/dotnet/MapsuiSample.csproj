@@ -6,19 +6,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Selects the namespace of the copy of Mapsui's shared map control. -->
-    <DefineConstants>$(DefineConstants);__SLINT__</DefineConstants>
-    <!-- The copy keeps Mapsui's own code style. -->
-    <NoWarn>$(NoWarn);CS1591;IDE0005;IDE0055</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <SlintFile Include="ui/main.slint" />
-    <SlintFile Include="ui/mapsui.slint" Generate="false" />
+    <!-- For import { MapsuiView } from "@mapsui"; a package of the control would add it. -->
+    <SlintLibraryPath Include="mapsui" Path="../Mapsui.UI.Slint/mapsui.slint" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Mapsui.Rendering.Skia" Version="5.2.0-beta.1" />
-    <PackageReference Include="Mapsui.Tiling" Version="5.2.0-beta.1" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
+    <ProjectReference Include="../Mapsui.UI.Slint/Mapsui.UI.Slint.csproj" />
   </ItemGroup>
   <!-- Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below. -->
   <ItemGroup>

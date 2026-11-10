@@ -76,12 +76,13 @@ Run them in this order; each one builds on the one before.
 6. The Mapsui prototype of item 28, with tiles from OpenStreetMap, which needs the network:
 
    ```powershell
+   dotnet run --project examples\mapsui\Mapsui.UI.Slint.Tests
    cd examples\mapsui\dotnet
    dotnet run
    $env:MAPSUI_BENCH = "1"; dotnet run; Remove-Item Env:MAPSUI_BENCH
    ```
 
-   The window shows Kyiv, and dragging with the mouse pans the map and the wheel zooms it.
+   The tests of the control pass without a screen; the window shows Kyiv, and dragging with the mouse pans the map and the wheel zooms it.
    The scripted run prints the scale, the frame size, whether panning and the wheel work, and the draw and copy times;
    record them with the scale of the display, and again with `$env:SLINT_SCALE_FACTOR = "2"`.
 
