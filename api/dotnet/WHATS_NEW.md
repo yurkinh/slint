@@ -3,10 +3,21 @@
 
 ## 1.19.0-preview.13
 
-- Write the UI in C# with the new package `Slint.Markup`: a component returns its UI from `Render()`,
-  with builders for every element and widget, and renders again after a change of a `Signal<T>` or of its state.
-  The pages compile once, and the next start reads them from a cache.
-  `dotnet new slint --markup` creates such an app. See [UI Written in C#](README.md#ui-written-in-c-preview).
+- Write the UI in C# with the new package `yurkinh.slint.net.Markup`, without a `.slint` file.
+  See [UI Written in C#](README.md#ui-written-in-c-preview).
+  - Builders for every element and standard widget, generated from the compiler,
+    with their properties, callbacks, and enums, and `Clickable` for buttons with your own colors and shapes.
+  - Components like Comet's: a `Component` returns its UI from `Render()`,
+    and renders again after a handler, or a change of a `Signal<T>`, `SignalList<T>`, or `Computed<T>` that it read.
+    `Component<TState>` has `SetState`, `Navigation` a stack of pages, and components nest with their own state.
+  - Bindings like CommunityToolkit.Maui.Markup's: `.BindingContext(vm)`, `.Bind(LineEdit.TextProperty, (Vm vm) => vm.Name)`,
+    and `.BindCommand(...)` follow a view model of CommunityToolkit.Mvvm.
+  - `If` and `ForEach` show and repeat parts without compiling again,
+    and the pages compile once per process and are read from a cache in later runs, in under a millisecond.
+  - Hot reload of the C# code renders the window again.
+  - `<SlintFile Include="ui/card.slint" Markup="true" />` makes the components of your own `.slint` files builders.
+  - It works with trimming and Native AOT. `dotnet new slint --markup` creates such an app,
+    and five examples show it, among them three samples of Comet, ported.
 
 ## 1.19.0-preview.12
 

@@ -442,7 +442,7 @@ one global per page: `ObservableObject`, `RelayCommand`, `AsyncRelayCommand`, th
 
 ## UI Written in C# (Preview)
 
-Write the UI in C# instead of a `.slint` file, with the package `Slint.Markup`, which references `Slint`:
+Write the UI in C# instead of a `.slint` file, with the package `Slint.Markup` from 1.19.0-preview.13, which references `Slint`:
 
 ```sh
 dotnet add package Slint.Markup
