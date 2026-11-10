@@ -246,6 +246,8 @@ jobs:
                   version=${version%.nupkg}
                   mkdir markup && cd markup
                   dotnet new console
+                  # A nuget.config of its own, since the step above added a source named local to the user's.
+                  dotnet new nugetconfig
                   dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
                   dotnet add package "$SLINT_PACKAGE_ID.Markup" --version "$version"
                   mkdir ui
