@@ -23,6 +23,7 @@ addToLibrary({
         "$stringToNewUTF8",
         "free",
         "slint_em_on_pointer",
+        "slint_em_on_touch",
         "slint_em_on_wheel",
         "slint_em_on_key",
         "slint_em_on_focus",
@@ -67,12 +68,32 @@ addToLibrary({
         });
         canvas.after(input);
 
+        // Each finger down has the smallest id that no other finger has, from its pointerId.
+        const fingers = new Map();
         const pointer = (kind) => (e) => {
             if (kind === 0 && document.activeElement !== input) {
                 canvas.focus();
                 canvas.setPointerCapture(e.pointerId);
             }
-            _slint_em_on_pointer(kind, e.offsetX, e.offsetY, e.button, e.pointerType === "touch");
+            if (e.pointerType === "touch") {
+                // Slint turns fingers into pointer events, and two of them into pinch and rotation gestures.
+                let finger = fingers.get(e.pointerId);
+                if (kind === 0 && finger === undefined) {
+                    const taken = new Set(fingers.values());
+                    for (finger = 0; taken.has(finger); finger++);
+                    fingers.set(e.pointerId, finger);
+                }
+                // A finger that lifts also leaves the canvas, which ends nothing more.
+                if (finger !== undefined && !(kind === 3 && e.type === "pointerleave")) {
+                    // Phases of Slint's TouchPhase: 0 started, 1 moved, 2 ended, 3 cancelled.
+                    _slint_em_on_touch(finger, [0, 2, 1, 3][kind], e.offsetX, e.offsetY);
+                    if (kind === 1 || kind === 3) {
+                        fingers.delete(e.pointerId);
+                    }
+                }
+            } else {
+                _slint_em_on_pointer(kind, e.offsetX, e.offsetY, e.button);
+            }
             e.preventDefault();
         };
         canvas.addEventListener("pointerdown", pointer(0));

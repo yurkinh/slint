@@ -19,11 +19,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use i_slint_core::api::{LogicalPosition, LogicalSize, PhysicalSize};
 use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner};
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
 use i_slint_core::items::{InputType, TextChangeNotify, TextInput};
 use i_slint_core::platform::{
-    Clipboard, EventLoopProxy, Platform, PlatformError, PointerEventButton, WindowAdapter,
-    WindowEvent,
+    Clipboard, EventLoopProxy, InternalEvent, Platform, PlatformError, PointerEventButton,
+    WindowAdapter, WindowEvent,
 };
 use i_slint_core::window::{
     InputMethodRequest, WindowAdapterInternal, WindowInner, WindowProperties,
@@ -602,7 +602,7 @@ pub fn start_event_loop(on_quit: Box<dyn FnOnce()>) {
 // Called from slint_emscripten.js
 
 #[unsafe(no_mangle)]
-extern "C" fn slint_em_on_pointer(kind: c_int, x: f32, y: f32, button: c_int, is_touch: bool) {
+extern "C" fn slint_em_on_pointer(kind: c_int, x: f32, y: f32, button: c_int) {
     let Some(window) = current_window() else { return };
     let position = LogicalPosition::new(x, y);
     let button = match button {
@@ -615,16 +615,28 @@ extern "C" fn slint_em_on_pointer(kind: c_int, x: f32, y: f32, button: c_int, is
     };
     match kind {
         0 => window.dispatch(WindowEvent::PointerPressed { position, button }),
-        1 => {
-            window.dispatch(WindowEvent::PointerReleased { position, button });
-            // A lifted finger leaves nothing hovered.
-            if is_touch {
-                window.dispatch(WindowEvent::PointerExited);
-            }
-        }
+        1 => window.dispatch(WindowEvent::PointerReleased { position, button }),
         2 => window.dispatch(WindowEvent::PointerMoved { position }),
         _ => window.dispatch(WindowEvent::PointerExited),
     }
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn slint_em_on_touch(finger: c_int, phase: c_int, x: f32, y: f32) {
+    let Some(window) = current_window() else { return };
+    let phase = match phase {
+        0 => TouchPhase::Started,
+        1 => TouchPhase::Moved,
+        2 => TouchPhase::Ended,
+        _ => TouchPhase::Cancelled,
+    };
+    window.dispatch(WindowEvent::internal(InternalEvent::Touch {
+        id: finger,
+        position: i_slint_core::lengths::LogicalPoint::new(x, y),
+        phase,
+        event_time: None,
+        history: Default::default(),
+    }));
 }
 
 #[unsafe(no_mangle)]
