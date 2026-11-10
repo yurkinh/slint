@@ -37,7 +37,7 @@ and point an app at it with `$env:SLINT_DOTNET_NATIVE_LIBRARY = "$PWD\target\rel
 
 Run them in this order; each one builds on the one before.
 
-1. The tests of the library, 138 or more, with one skipped:
+1. The tests of the library, 138 or more, none skipped; macOS and Linux skip the one for Windows:
 
    ```powershell
    dotnet run --project api/dotnet/Slint.Tests
@@ -141,6 +141,11 @@ Run them in this order; each one builds on the one before.
 - `OutputType` `WinExe`, as in the templates, opens no console, and drops what the app writes to it;
   run with `Exe` while debugging a check.
 - Windows Defender can slow the first run of a new executable by seconds; measure a second run.
+- Native AOT finds `link.exe` through Visual Studio's scripts, which run `vswhere.exe`.
+  If a publish fails with "'vswhere.exe' is not recognized" in the link command,
+  add `${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer` to `PATH`.
+- Dates and times follow the system's culture.
+  With a culture that has a 24-hour clock and no AM or PM, such as `uk-UA`, a format with `hh` and `tt` shows 22:09 as 10:09.
 
 ## Screenshots
 

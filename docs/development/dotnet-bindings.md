@@ -497,13 +497,17 @@ Done:
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
   Turning off drag and drop in winit would make such threads work, but lose file drops,
   and Slint doesn't expose that option.
+  On 2026-11-10 on Windows, it caught the examples of item 26, which had no `[STAThread]`.
 - **13.** More `csharp` blocks, ported from the `rust` or `js` blocks of the cases for models, focus, callbacks,
   globals, animations, and timers: 112 cases have one.
   Writing them found that `.slint` code couldn't add or remove rows of a C# model,
   and that a global exported under more names got a class for only one of them.
   Cases with pinch gestures or flickable physics have no block,
   since `Slint.Testing` has no helpers for those.
+  On Windows, on 2026-11-10, all 974 cases pass, and so do the 138 tests of the library.
 - **16.** A smoke test of the sample ports in CI, see [Samples](#samples).
+  On Windows, on 2026-11-10, all 37 projects keep running for 5 seconds.
+  It uses the testing backend, which skips the apartment check of item 11, so it can't find a missing `[STAThread]`.
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
 - **14.** The upstream pull request, [#14498](https://github.com/slint-ui/slint/pull/14498), out of draft.
@@ -686,6 +690,9 @@ Done:
     The dry run passed every job, Native AOT on the Linux and Windows runners included, and 1.19.0-preview.10 published the templates.
   - Phase 5, done: the README's Quick Start lists the four templates, and its Android and iOS sections start from them.
     The documentation page and the article have them too, and What's New lists them in 1.19.0-preview.10.
+  - Windows, on 2026-11-10, with the templates of 1.19.0-preview.13 from nuget.org:
+    apps from `slint` and `slint --markup` build without warnings, open their windows, and count clicks,
+    and the markup app publishes with Native AOT without `IL` warnings and runs the same.
   - Later: a test project, which needs the testing backend in the packaged library.
 - **22.** Desktop apps published as one file, without the `ui/` directory and `slint_dotnet` next to the executable.
   With phase 1, a single-file publish with `IncludeNativeLibrariesForSelfExtract=true` gives one executable,
@@ -989,6 +996,11 @@ Done:
       but adds a property per value.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,
     and lose the focus, scrolling, and animations of the UI.
+  - Windows, on 2026-11-10: the five examples open their windows and look as on macOS,
+    and the gallery's Pickers page opens the date and time pickers, which set the page's labels.
+    The todo example publishes with Native AOT without `IL` warnings, a 3 MB executable, and opens its window.
+    Found and fixed: the examples had no `[STAThread]`, see item 28;
+    and the gallery formatted times with `hh:mm tt`, which shows 22:09 as 10:09 in `uk-UA`, so it uses the culture's `t` and `T`.
 
 Next:
 
@@ -1296,16 +1308,22 @@ Next:
     - `MAPSUI_BENCH=1` with the release build: panning and the wheel work.
       At 1x, frames of 884×584 px take 1.4–1.7 ms to draw, at most 6.6 ms, and 0.5–0.6 ms to copy.
       At 2x, frames of 1768×1168 px take 25 ms to draw, at most 44 ms, and 2.4–2.5 ms to copy.
-      Drawing at 2x is about 12 times as slow as on macOS, in SkiaSharp's raster drawing, which needs profiling.
+      Drawing at 2x is about 12 times as slow as on macOS, and the same with a Release build of the app,
+      so the time is in SkiaSharp's native raster drawing, which needs profiling.
       With the debug build, the copy takes 22 ms at 1x and 90 ms at 2x, so measure with the release build.
     - `--check`: 149 of 153 samples show and draw without an error.
       The other 4 are among the 6 of macOS: `LoggingWidget`, `WmsBasilicata`, `WmsOpenSea`, and `WmsProjectionDotSpatial`.
-    - The first build of the samples after cloning Mapsui failed with IDE0055 in `Mapsui.csproj`, though `EnforceCodeStyleInBuild=false` is set;
-      the next build passed, and the cause is open.
-    - Found and fixed: the six `dotnet-markup` samples, this one included, had top-level statements without `[STAThread]`,
-      so they threw at startup on Windows, as item 11 intends; they now have an explicit `[STAThread] Main`, and open their windows.
-      CI's smoke test didn't catch it, since the testing backend skips the check.
-    - Left for a person: panning and zooming with the mouse, two fingers on a touchscreen, the browser sample, and the package outside the repository.
+    - The package, packed as 1.19.0-preview.13 against Slint's package on nuget.org, draws a frame of 320×240 in an app outside the repository.
+    - Found and fixed:
+      - The six `dotnet-markup` samples, this one included, had top-level statements without `[STAThread]`,
+        so they threw at startup on Windows, as item 11 intends; they now have an explicit `[STAThread] Main`, and open their windows.
+        CI's smoke test didn't catch it, since the testing backend skips the check.
+      - A build of the samples after cloning Mapsui could fail with IDE0055 in `Mapsui.csproj`.
+        The SDK adds Mapsui's projects to the app as transitive project references, without `EnforceCodeStyleInBuild=false`,
+        so each built twice into one `obj` directory, and the build that enforced the code style sometimes compiled first.
+        The app now gives every reference into the checkout the same properties; three builds from a clean checkout pass.
+    - Left for a person: panning and zooming with the mouse, and two fingers on a touchscreen.
+      The browser sample runs on macOS, and Windows adds nothing to it.
   - Later: DrawnUI's OpenGL path, for less copying.
   - Limits: inside a view, screen readers see one image; Mapsui's `MapView`, a MAUI control with pins and callouts, isn't part of it.
 
