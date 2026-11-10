@@ -29,7 +29,8 @@ class Counter : Component
 - After a handler, or a change of a `Signal<T>` or `SignalList<T>` field, the component renders again.
   `If` and `ForEach` show and repeat parts without compiling another page.
 - `Component<TState>` has a `State` and `SetState`.
-- `<SlintFile Include="ui/card.slint" Markup="true" />` generates builders for the components of your own `.slint` files.
+- `<SlintFile Include="ui/card.slint" Markup="true" />` generates builders for the components of your own `.slint` files,
+  and a page with them exports the files' globals.
 - Hot reload of the C# code renders the window again.
 
 The package works with trimming and Native AOT.

@@ -84,6 +84,14 @@ public abstract partial class Element : IEnumerable<Element>
     internal string? Import { get; }
 
     /// <summary>
+    /// The globals that the file of the element exports, such as one that C# sets the callbacks of.
+    /// A page with the element exports them too, so <see cref="ComponentInstance.SetGlobalCallback(string, string, Action{object?[]})"/> on its instance reaches them.
+    /// </summary>
+    protected virtual IReadOnlyList<string> ExportedGlobals => [];
+
+    internal IReadOnlyList<string> Globals => ExportedGlobals;
+
+    /// <summary>
     /// The path of <paramref name="path"/> where the application loads its <c>.slint</c> files from:
     /// its directory, or with <c>SlintEmbedFiles</c> the files that the assembly embeds.
     /// The generated builders of an application's <c>.slint</c> files import their components from there.

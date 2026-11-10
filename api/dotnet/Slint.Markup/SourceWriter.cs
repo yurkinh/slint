@@ -44,6 +44,7 @@ internal sealed class SourceWriter
 
     private readonly StringBuilder _body = new();
     private readonly SortedSet<string> _widgets = new(StringComparer.Ordinal);
+    private readonly SortedSet<string> _globals = new(StringComparer.Ordinal);
     private readonly List<string> _declarations = [];
     private readonly List<Element> _popups = [];
     private int _rows;
@@ -80,6 +81,10 @@ internal sealed class SourceWriter
         foreach (var import in _widgets.GroupBy(w => w.Split('|')[1]))
         {
             source.Append("import { ").AppendJoin(", ", import.Select(w => w.Split('|')[0]).Order(StringComparer.Ordinal)).Append(" } from \"").Append(import.Key).AppendLine("\";");
+        }
+        foreach (var export in _globals.GroupBy(g => g.Split('|')[1]))
+        {
+            source.Append("export { ").AppendJoin(", ", export.Select(g => g.Split('|')[0]).Order(StringComparer.Ordinal)).Append(" } from \"").Append(export.Key).AppendLine("\";");
         }
         source.Append("export component ").Append(ComponentName).AppendLine(" inherits Window {");
         foreach (var declaration in _declarations)
@@ -142,6 +147,10 @@ internal sealed class SourceWriter
         if (element.Import != null)
         {
             _widgets.Add(element.Type + "|" + element.Import);
+            foreach (var global in element.Globals)
+            {
+                _globals.Add(global + "|" + element.Import);
+            }
         }
         _body.Append(indent);
         if (element.ElementId != null)

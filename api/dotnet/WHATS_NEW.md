@@ -1,6 +1,15 @@
 <!-- cSpell: ignore xplat yurkinh -->
 # What's New in Slint for .NET
 
+## Next Preview
+
+- Pinch and rotate in the browser: each finger reaches Slint's touch handling,
+  so `ScaleRotateGestureHandler` works there as on phones.
+- A pinch of two fingers zooms by the change of their distance; before, it zoomed in too far and out too little.
+- `Slint.Markup`: a page with a builder from your own `.slint` file exports the globals of that file,
+  so C# sets their properties and callbacks through `Page.Instance`.
+- `Slint.targets` compiles a `.slint` file again when a file that it imports changes, such as one from a library path.
+
 ## 1.19.0-preview.13
 
 - Write the UI in C# with the new package `yurkinh.slint.net.Markup`, without a `.slint` file.

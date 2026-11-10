@@ -513,10 +513,25 @@ pub fn generate(doc: &Document, config: &Config) -> String {
                 c.as_ref().left().filter(|c| !c.is_global()).map(|c| (export, c))
             })
             .collect::<Vec<_>>();
+        // A page with one of the builders exports the file's globals, which C# reaches through the page's instance.
+        let globals = doc
+            .exports
+            .iter()
+            .filter(|(_, c)| c.as_ref().left().is_some_and(|c| c.is_global()))
+            .map(|(export, _)| string_literal(export.as_str()))
+            .collect::<Vec<_>>();
+        let globals = if globals.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "\n    /// <inheritdoc/>\n    protected override global::System.Collections.Generic.IReadOnlyList<string> ExportedGlobals => [{}];",
+                globals.join(", ")
+            )
+        };
         for (export, component) in components {
             // Each builder registers the enums of this file before its first use.
             let registration = format!(
-                "\n    static {}() => MarkupEnums.Register();",
+                "\n    static {}() => MarkupEnums.Register();{globals}",
                 class_name(export.as_str())
             );
             write_class(

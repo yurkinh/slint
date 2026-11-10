@@ -536,6 +536,8 @@ sealed class Counter : Component
 
   The build generates a builder for each component that the file exports, in the project's namespace,
   and the pages import the file from the output directory, or with `SlintEmbedFiles` from the assembly.
+  A page with one of the builders also exports the globals of the file,
+  so C# sets their properties and callbacks through `Page.Instance`, as `SetGlobalCallback` does for a generated window.
 
 ### Binding to a View Model
 

@@ -6,6 +6,11 @@ import { Button } from "std-widgets.slint";
 
 export enum CardTone { plain, highlighted }
 
+// A page with a MarkupCard exports this too.
+export global CardHost {
+    in-out property <int> opened-count;
+}
+
 export component MarkupCard inherits Rectangle {
     in property <string> title;
     in property <CardTone> tone;
@@ -20,7 +25,7 @@ export component MarkupCard inherits Rectangle {
         }
         Button {
             text: "Open";
-            clicked => { root.expanded = !root.expanded; root.opened(root.title); }
+            clicked => { root.expanded = !root.expanded; CardHost.opened-count += 1; root.opened(root.title); }
         }
     }
 }

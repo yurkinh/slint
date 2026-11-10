@@ -325,6 +325,16 @@ public sealed class MarkupTests
     });
 
     [TestMethod]
+    public void ExportsTheGlobalsOfTheFilesOfItsComponents() => SlintThread.Run(() =>
+    {
+        using var page = Page.Create(new VerticalLayout { new MarkupCard().Title("Report") });
+
+        StringAssert.Contains(page.Source, $"export {{ CardHost }} from \"{Element.ApplicationFile("ui/markup-card.slint")}\";");
+        page.Instance.SetGlobalProperty("CardHost", "opened-count", 2);
+        Assert.AreEqual(2, Convert.ToInt32(page.Instance.GetGlobalProperty("CardHost", "opened-count")));
+    });
+
+    [TestMethod]
     public void PlacesChildrenInGridRows() => SlintThread.Run(() =>
     {
         using var page = Page.Create(new GridLayout
