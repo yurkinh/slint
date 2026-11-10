@@ -1148,40 +1148,50 @@ Next:
   - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
     so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
-- **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:
-  `Mapsui.UI.Slint` next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto, Blazor, Android, and iOS, for a pull request to Mapsui.
-  Mapsui is a map component for .NET that draws with SkiaSharp,
+- **28.** Mapsui for Slint: `Mapsui.UI.Slint`, a map control for Slint.NET next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto,
+  Windows Forms, Blazor, Android, and iOS, MIT licensed, about 4 weeks.
+  [Mapsui](https://github.com/Mapsui/Mapsui) is a map component for .NET that draws with SkiaSharp,
   with tiles from OpenStreetMap and other servers, vector layers, styles, widgets, and NetTopologySuite geometries.
-  - What there is: `Mapsui`, `Mapsui.Rendering.Skia`, and `Mapsui.Tiling` target `net8.0` and `net9.0`, and need no UI framework.
-    Each platform's `MapControl` imports the shared project `Mapsui.UI.Shared`, about 600 lines with `#if` per platform,
-    and adds about 170 lines in Eto, the smallest, to 370 in MAUI.
-    A platform supplies a canvas to draw on, `InvalidateCanvas`, the size, the pixel density, the UI thread,
-    the pointer, the wheel, and the Shift key.
-    `RenderController` asks for a redraw from a background task, at most every 8 ms, and the control draws on its UI thread.
-    The navigator turns the pointers into pan, zoom, and rotation, through `ManipulationTracker`.
-  - The port draws the map into an `SKBitmap`, and shows it with `Image.FromPremultipliedRgba8`, as Microcharts does in item 21.
-    It works with every Slint renderer, `linuxkms` included, at the cost of a CPU draw and a copy per frame.
-    DrawnUI's OpenGL path of item 23 is an option for later, if panning a full-screen map is too slow.
-  - The control keeps its own copy of the 100 or so lines from SkiaSharp to an `Image`, instead of a package shared with items 21 and 23:
-    each goes to a different project upstream, which wouldn't want another dependency for so little.
+  - What there is, at 4bed0e7 of 2026-11-09, the 5.0 betas:
+    - `Mapsui`, `Mapsui.Rendering.Skia`, and `Mapsui.Tiling` target `net8.0` and `net9.0`, need no UI framework,
+      use SkiaSharp 3.119.4, and are AOT compatible; version 5.0.0-beta.8 is on nuget.org.
+    - Each platform's `MapControl` imports the shared project `Mapsui.UI.Shared`:
+      `MapControl.cs`, 602 lines with `#if` per platform, and `RenderController.cs`, 243 lines.
+      The platform part is 167 lines for Eto, the smallest, and 300 for Avalonia.
+    - A platform supplies a canvas, `InvalidateCanvas` on its UI thread, the size, the pixel density, the pointer, the wheel,
+      the Shift key, the cursor, and opening a link.
+      `RenderController` asks for a redraw at most every 8 ms, and `ManipulationTracker` turns pointers into pan, zoom, and rotation.
+    - `global.json` pins the .NET 9 SDK, 9.0.305, while Slint.NET needs .NET 10, so a Slint project can't build in Mapsui's repository as it is.
+      Mapsui's contributors keep a plan per pull request in `plans/`, and agents follow `.agents/`.
+  - The control draws the map with SkiaSharp into a raster surface and shows it with `Image.FromPremultipliedRgba8`,
+    which DrawnUI's host of item 23 does, and which works with every Slint renderer, `linuxkms` included.
+    Its OpenGL path is for later, if panning a full-screen map is too slow.
   - Slint's side, `mapsui.slint`, follows DrawnUI's: a `MapsuiView` with a `view-id`, an `Image`, a `TouchArea`,
-    a `ScaleRotateGestureHandler` for pinch and rotation, and a `FocusScope`,
-    and a `MapsuiHost` global with callbacks for the size and the input, which the app exports.
-    C# attaches a `MapControl` to a view: `using var map = MapControl.Attach(window.Instance, viewId: 0);`.
-  - Phase 0, 2–3 days: a prototype on macOS with OpenStreetMap tiles, panning with the mouse, and zooming with the wheel.
-    Measure the draw and copy of a frame at 2x, and check that Mapsui's `net9.0` assemblies run in a `net10.0` app.
-  - Phase 1, 1 week: `Mapsui.UI.Slint`, for `net10.0`, with the `__SLINT__` define in `Mapsui.UI.Shared`:
-    resizing, the scale factor, redraws marshalled to the Slint thread with `InvokeFromEventLoop`,
-    the `Info` event and widgets on tap, the Shift key, the cursor while panning, opening links, and `Dispose`.
-  - Phase 2, 1 week: touch and pinch through `ScaleRotateGestureHandler`, the trackpad on macOS,
-    and the control on Android and iOS, with `net10.0-android` and `net10.0-ios`, tested on the Pixel_9 emulator and the iPhone.
-  - Phase 3, 3–4 days: `Mapsui.Samples.Slint`, a sample browser with a Slint list of the samples of `Mapsui.Samples.Common`,
-    about 170 files, which run unchanged, like `Mapsui.Samples.Eto` does.
-    Also `examples/mapsui/dotnet` in this repository, a small map next to Slint widgets.
-  - Phase 4, 2–3 days: the package `Mapsui.Slint`, built and tested in Mapsui's CI, and the pull request to Mapsui,
+    a `ScaleRotateGestureHandler` for pinch and rotation, and a `FocusScope`, and a `MapsuiHost` global with callbacks for the size and the input.
+    C# attaches a control to a view: `using var map = SlintMapControl.Attach(window.Instance, viewId: 0);`.
+    With `Markup="true"`, `mapsui.slint` also gives `Slint.Markup` a `MapsuiView` builder of item 26.
+  - Decision before phase 1, which needs the user and Mapsui's maintainers:
+    - The control as a project of Mapsui, in a fork's branch `slint`, which needs Mapsui to build it with the .NET 10 SDK,
+      or the package `Mapsui.Slint` in a repository of its own, which depends on Mapsui's packages and copies the shared project, as phase 0 does.
+    - Recommended: ask Mapsui's maintainers in an issue after phase 0, with its screenshots and numbers,
+      and keep the separate package if they'd rather not move to .NET 10 yet.
+  - Phase 0, 3 days: a prototype in `examples/mapsui/dotnet`, outside Mapsui, with Mapsui's 5.0 betas from nuget.org
+    and a copy of `Mapsui.UI.Shared` under its MIT notice, with a `__SLINT__` define.
+    - OpenStreetMap tiles in a Slint window, panning with the mouse, zooming with the wheel, and redraws on the Slint thread through `InvokeFromEventLoop`.
+    - Measure a frame at 2x, its draw and its copy into an `Image`, while panning; check that the `net9.0` assemblies run in a `net10.0` app,
+      and that the app publishes with Native AOT.
+  - Phase 1, 1 week: the control.
+    - Resizing, the scale factor, the `Info` event and widgets on tap, hovering, the Shift key, the cursor while panning,
+      opening links, keyboard focus, and `Dispose`.
+    - Tests with Slint's testing backend: a click that raises `Info`, a wheel that zooms, a size that changes the viewport.
+  - Phase 2, 1 week: touch, pinch, and rotation through `ScaleRotateGestureHandler`, the trackpad on macOS,
+    and Android and iOS, tested on the Pixel_9 emulator and the iPhone 13.
+  - Phase 3, 4 days: `Mapsui.Samples.Slint`, a sample browser with a Slint list of `Mapsui.Samples.Common`, which runs unchanged,
+    like `Mapsui.Samples.Eto`; and the `MapsuiView` builder of `Slint.Markup`, with a page of the gallery of item 26 that shows a map.
+  - Phase 4, 3 days: the package, built and tested in CI, and, after the decision, the pull request to Mapsui or the first release of `Mapsui.Slint`,
     depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
-  - Later: the browser, where SkiaSharp's WebAssembly library links into the same app as Slint's,
-    which item 24 hasn't tried, and tile servers need CORS.
+  - Later: the browser, where SkiaSharp's WebAssembly library would link into the same app as Slint's, which item 24 hasn't tried,
+    and where tile servers need CORS; and DrawnUI's OpenGL path, for less copying.
   - Limits: inside a view, screen readers see one image; Mapsui's `MapView`, a MAUI control with pins and callouts, isn't part of it.
 
 ## Live Reload
