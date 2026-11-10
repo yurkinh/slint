@@ -518,6 +518,9 @@ Done:
   and the SystemTray example crashed on the macOS runner, fixed in Slint's tray code, see [Building and Testing](#building-and-testing).
   The ".NET Android" job also failed once, when Android ended the todo example as its incremental install finished.
   After a merge of `master` on 2026-11-09, all its 48 CI checks pass, with 18 skipped.
+  On 2026-11-10, after another merge of `master`, the ".NET Android" job failed when adb lost the emulator
+  just as the smoke test asked whether the app ran, which counted as an app that had ended.
+  The smoke test now runs each query again after reconnecting when adb itself fails; then all 48 checks pass again, with 18 skipped.
   The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
   as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
   Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
@@ -778,170 +781,9 @@ Done:
     The publish workflow checks that the apps built from the packages compile their units,
     and runs the desktop one again without its `.slint` file.
 
-Next:
-
-- **10.** A C# tab in the pages of the documentation website that have a Python tab, and in `live-preview.mdx`,
-  once the bindings are part of a Slint release.
-  The tutorial needs its C# code next to the other languages in `docs/astro/src/content/code/`.
-  Until then, a community page on the fork's `gh-pages` branch, at <https://yurkinh.github.io/slint/>,
-  extends the README with deployment, troubleshooting, and samples, and has sections for iOS and for charts with Microcharts.
-  It also hosts the article "Slint ♥ .NET", at <https://yurkinh.github.io/slint/slint-loves-dotnet/>,
-  a tour of the bindings up to preview.10, which the documentation's overview links to,
-  and "Slint ♥ .NET, Part 2", at <https://yurkinh.github.io/slint/slint-loves-dotnet-2/>, with only what's new since: the browser and DrawnUI.
-  The page has a Web section from preview.11, and View Models, `SlintEmbedFiles`, and `SlintPrecompile` from preview.12.
-  Part 2, now covering preview.11 and preview.12, waits for approval on the local branch `slint-loves-dotnet-2-draft`.
-  It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
-  The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
-- **17.** Platforms beyond the desktop: packages for Android and iOS, and the `linuxkms` backend on embedded Linux,
-  which works in a virtual machine and waits for a test on real hardware.
-  The packages ship the native library for macOS, Linux, and Windows, and for Android from 1.19.0-preview.7.
-  Both mobile platforms follow the C++ API, where Slint owns the entry point and calls the application's code,
-  so neither needs Native AOT or .NET 11.
-  - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
-    the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
-    Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
-    - Published in 1.19.0-preview.8: Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
-      Android ends the process of an app in the background when it needs memory,
-      and starts a new one with the state the app saved when the user returns,
-      and `SlintActivity` also ends the process when Android destroys the activity.
-      `android_main` installs the platform with an event listener, which calls back into C# on the Slint thread:
-      `SlintSaveState` returns the bytes to keep, `SlintRestoreState` gets them back once per process,
-      and `SlintPause`, `SlintResume`, and `SlintLowMemory` report the other events.
-      The bytes go through a buffer that C# fills with `slint_dotnet_android_state_set`, so that neither side frees the other's memory.
-      `examples/todo/dotnet-android` keeps its list this way, like the Rust version.
-    - Next, once .NET 11 is out: hot reload on Android, to re-test and design with it.
-      With .NET 10, `dotnet watch` deploys and starts an app, but its Hot Reload agent never connects back,
-      for a plain `dotnet new android` app as much as for a Slint one, so C# changes don't apply.
-      Live reload of `.slint` files would need the changed files on the device, since the app loads them from its files directory;
-      until then, `Slint.targets` ignores `SlintLivePreview` on Android, with the warning `SLINT002`,
-      instead of generating code that loads the files from the build machine's paths.
-  - iOS next, in about three to four weeks to a preview, through the winit backend and Skia on Metal, like Rust and C++.
-    Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain` and never returns,
-    instead of `UIApplication.Main` with a C# app delegate.
-    The app's `Info.plist` names Slint's `SlintWindowSceneDelegate` in its scene manifest, which iOS 27 requires.
-    `slint-dotnet` builds as a dynamic framework in an `.xcframework`, which the package embeds with a `NativeReference`;
-    a static library, as Slint's C++ build makes, worked too, but was too large for a NuGet package.
-    An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
-    - Phase 0, a prototype, worked: the C# `Main` starts UIKit through `Run`, P/Invoke finds the native library,
-      and a window and its callbacks work in the simulator.
-    - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the framework `NativeReference` and the bundle resources in `Slint.targets`,
-      and the resolver for the framework; `Slint.dll` needs no `net10.0-ios` build.
-    - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
-    - Phase 3, done: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
-      and tested by `test_ios_package`, which builds an app from the packages and starts it in a simulator.
-      A package with it worked locally, and the first dry run of the publish workflow built and packed it.
-      That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed,
-      and a second dry run passed every job.
-      Published in 1.19.0-preview.10, with the templates of item 20.
-    - Phase 4, done, retested on 2026-11-07 with 1.20.0:
-      - On an iPhone 13 with iOS, signed by a free personal team, Release builds of the todo example and lols work.
-        lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
-      - On the iPhone, the todo example takes text from the on-screen keyboard, keeps its list across the background,
-        and follows rotation; an app from `dotnet new slint-ios` with the preview.11 packages of nuget.org starts.
-      - Apps on Android and iOS lacked the images of their `.slint` files, such as the todo example's window icon,
-        since only the `.slint` files went into the APK or the bundle.
-        `SlintEmbedFiles` is now on by default there, and the assembly embeds the images too.
-      - The OpenGL samples run without their OpenGL content on iOS, as designed: Slint renders with Skia through WGPU on Metal,
-        and its rendering notifier offers no OpenGL there. The plotter, which draws 3D in C#, works.
-      - The app lifecycle needs no bindings: UIKit's notifications, which .NET for iOS offers in C#, arrive on the main thread,
-        which is the Slint thread. `examples/todo/dotnet-ios` writes its list to a file when the app enters the background,
-        and reads it at startup, with `TodoState`, which the Android version now shares.
-      - Native AOT works on the iPhone, with `PublishAot` in the app's project and `dotnet publish -r ios-arm64`:
-        the app has no Mono runtime or assemblies, only its executable and the framework.
-        The iOS SDK takes `PublishAot` only when publishing for a device, and as `-p:`, it would also reach `Slint.csproj`.
-    - Later, postponed until .NET 11, like on Android: Hot Reload on iOS.
-      `dotnet watch` needs `--device` with more than one simulator booted,
-      and the iOS SDK refuses it unless Mono's interpreter is on, with `UseInterpreter` in the project,
-      since iOS allows no JIT; `.slint` live reload would also need the changed files in the app's container.
-    - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
-      so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
-      and a way to show a Metal texture in an `Image`, both new work in Slint.
-  - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
-    for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:
-    - The software renderer runs all the tested samples, including the Gallery, the printer demo, and lols,
-      and libinput delivers keys and clicks: a virtual keyboard from `/dev/uinput` adds a todo.
-    - The OpenGL renderers failed at the first frame, because `GbmDisplay` named a modifier to a driver
-      without `DRM_CAP_ADDFB2_MODIFIERS`. It now checks the capability, like `GbmDmabufDisplay`,
-      and Skia, FemtoVG, and both OpenGL samples render; that change is upstream as #14565, see item 14.
-    - Building `slint-dotnet` without the `live-preview` feature failed, since `is_window` needs the interpreter's `internal` feature,
-      which `Cargo.toml` now enables directly.
-    - The Linux .NET job of CI loads `vkms`, the kernel's virtual display driver, and starts the todo example
-      on `linuxkms-software` as root, failing on an error or when no frame was rendered.
-      A probe on GitHub's runners rendered it at 60 frames per second on Ubuntu 22.04 and 24.04,
-      and a `kmsgrab` screenshot of the `vkms` display showed the UI.
-      Ubuntu 22.04 has `vkms` in `linux-modules-extra`, which the step installs, and 24.04 has it already.
-      The runners also have a Hyper-V display; `linuxkms` takes the first card with a connected output, which is `vkms`'s `card0`.
-      The step passed its first run in the job itself.
-    - Next: a Raspberry Pi, for real hardware and a touchscreen.
-- **21.** Microcharts for Slint, in the branch [`slint`](https://github.com/yurkinh/Microcharts/tree/slint) of the fork yurkinh/Microcharts, MIT licensed:
-  `Microcharts.Slint` next to its views for MAUI, iOS, and Android, for a pull request to Microcharts.
-  There's no package of our own: apps use Microcharts' packages, and `Microcharts.Slint` once Microcharts publishes it.
-  - What there is: `Microcharts.Core`, about 4,300 lines, draws eight chart types onto an `SKCanvas` with SkiaSharp,
-    through `Chart.Draw(canvas, width, height)`:
-    bar, line, point, donut, pie, radar, radial gauge, and half radial gauge, and legacy versions of the first three.
-    Each platform view, about 80 lines, is a Skia canvas view that calls `Draw`, and redraws on the chart's `Invalidated` event.
-    `AnimationProgress` drives the entrance animation, stepped by an `ITimer` that `Microcharts.Timer.Create` makes.
-  - The port keeps that drawing: `Microcharts.Slint` draws a chart into an `SKBitmap` at the view's size in physical pixels,
-    and hands the pixels to a Slint `Image` with `Image.FromPremultipliedRgba8`.
-    Slint draws no chart itself, so the charts look the same as on MAUI, on every platform and renderer that Slint has,
-    including `linuxkms` with the software renderer.
-    The cost is a CPU draw and a copy per frame, which matters only while a chart animates.
-  - Not chosen, for now: charts in `.slint` with `Path` and repeaters, drawn by Slint's renderer without SkiaSharp.
-    They'd follow Slint's styles and live preview, and leave out SkiaSharp's native library, about 10 MB per platform,
-    but would rewrite every chart type and its text measurement.
-  - Phase 0, done: a prototype on macOS with one bar chart, drawn by SkiaSharp into an `Image`, animated, and resized with the window.
-    - A `net10.0` app that references `Microcharts.Core` gets no MAUI package or assembly, despite `UseMaui` in its project,
-      and runs on the desktop; the app gets SkiaSharp's native library, 15 MB on macOS.
-    - The chart draws at the view's size in physical pixels, with the canvas scaled by the window's scale factor,
-      so its sizes, which are in pixels, scale like the rest of the UI. At 2x, the labels are sharp.
-    - At 1920 by 934 pixels and 2x, a frame takes 1.4 ms to draw and copy on average, and 12 ms for the first one;
-      the animation of 1.5 s has about 45 frames. `Microcharts.Timer.Create` makes a timer on Slint's `Timer`.
-    - Skia draws premultiplied pixels, and `FromRgba8` takes straight alpha.
-      With an opaque background, the default, the two are the same.
-      With a transparent one, the light tops of the bars came out much darker, such as 5, 13, 17 instead of 40, 104, 135 at alpha 32.
-      Converting with Skia's `ReadPixels` fixes it, at 3 ms more per frame.
-      Instead, Slint.NET now has `Image.FromPremultipliedRgba8`, in 1.19.0-preview.10, on Slint's `RGBA8Premultiplied` buffers,
-      which Skia, FemtoVG, and the software renderer each draw; the prototype ran with each of them.
-  - Phase 1, done: `Sources/Microcharts.Slint`, for `net10.0`, `net10.0-android`, and `net10.0-ios`, like `Microcharts.Core`,
-    so that an Android app gets the Android build of Slint, with `SlintActivity`.
-    - `ChartRenderer` draws a chart into images at an element's size, again when the chart invalidates or the size changes.
-      A size change draws on a timer of zero, once the callback returns,
-      since drawing in it replaced the row of a repeater while Slint was still creating it.
-    - `SlintTimer` steps the animations on the Slint thread; `SlintTimer.Install` comes before the charts, which animate when they get entries.
-    - `chart-view.slint` has a `ChartView`, an `Image` that reports its size.
-      The C# side has no `.slint` file, so the library needs no `.slint` resources on Android and iOS.
-    - `SlintReference.targets` references `yurkinh.slint.net` 1.19.0-preview.10, or a Slint checkout with `-p:SlintRepository=<path>`.
-    - `Microcharts.Core` builds without `UseMaui`, which gave its assemblies MAUI's XAML namespace attributes.
-      Mono decodes those when it loads the assembly, so an Android app without MAUI aborted at startup,
-      with the published `Microcharts.Core` too; it uses no MAUI API, and `Microcharts.Maui` still builds.
-  - Phase 2, done: `Sources/Microcharts.Samples.Slint`, the charts of `Data.CreateQuickstart`, in a desktop, an Android, and an iOS project,
-    which share the UI and `Gallery.cs`. It runs on macOS, the Pixel 9 emulator, and the iPhone simulator,
-    where SkiaSharp's framework and Slint's framework sit side by side without a conflict.
-    The fork's README has a Slint section with the code and screenshots.
-  - Phase 3, next: the pull request to [microcharts-dotnet/Microcharts](https://github.com/microcharts-dotnet/Microcharts),
-    now that 1.19.0-preview.10, which `Microcharts.Slint` needs for `Image.FromPremultipliedRgba8`, is on nuget.org.
-    Microcharts asks for an issue before a pull request, and for whoever adds a framework to support it.
-    It adds the projects to `Microcharts.slnx` and a `Microcharts.Slint` package to the publish workflow,
-    which depends on `yurkinh.slint.net`, until Slint.NET has an official package ID.
-  - Risks: on embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
-    Native AOT on iOS links both Skias into one executable, which is untested.
-- **23.** DrawnUI for Slint, in the branch [`slint`](https://github.com/yurkinh/DrawnUi.Maui/tree/slint) of the fork yurkinh/DrawnUi.Maui, MIT licensed:
-  `DrawnUi.Slint`, a host for DrawnUI next to its MAUI, Blazor, OpenTK, and WPF hosts, for a pull request to DrawnUI.
-  DrawnUI is a UI framework drawn with SkiaSharp; a host gives its `Canvas` a surface, input, a UI thread, and frames.
-  - Phase 0 and 1, done: `SlintCanvasHost` runs a canvas in a `DrawnUiView` of `drawnui.slint`, on a raster surface,
-    with several views per window, the mouse, the wheel, and the keyboard, and DrawnUI's main thread on the Slint thread.
-  - Phase 2, done: the GPU path, opt-in with `SlintCanvasHost.UseGpu`, draws on the OpenGL context of Slint's FemtoVG renderer.
-    Slint's Skia renderer keeps its own Skia state of the context, which a second Skia on that context breaks.
-  - Phase 3, done: touch, a hidden `TextInput` for on-screen keyboards, and the sample on Android and iOS.
-    Still to check by hand: the on-screen keyboard's text reaching a DrawnUI editor on Android.
-    Not done: a `linuxkms` run.
-  - Phase 4, done: the `DrawnUi.Slint` package, whose build files make `drawnui.slint` importable and copy it to the output;
-    `DrawnUi.Slint.Game`; `SlintGallery`, with the OpenTK Hello app's pages, compiled unchanged, next to a Slint sidebar;
-    and `SlintPong`, DrawnUI's shared Pong in a whole window.
-  - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
-    so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
-  - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
-- **26.** UI written in C#, with a shared core and two front ends.
+- **26.** UI written in C#, with a shared core and two front ends, in `Slint.Markup`: done on 2026-11-09 in phases 0 to 10,
+  on `dotnet_dev` only, for 1.19.0-preview.13, which isn't released yet.
+  It has five examples in `examples/dotnet.slnx`: the todo example, three ports of Comet's samples, and a contacts form bound to a view model.
   Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
   which the interpreter compiles once per page, and C# then sets the page's properties.
   Measured on an Apple Silicon Mac with the release build, see item 27: a page without the standard widgets compiles in 1 ms,
@@ -1142,6 +984,170 @@ Next:
       but adds a property per value.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,
     and lose the focus, scrolling, and animations of the UI.
+
+Next:
+
+- **10.** A C# tab in the pages of the documentation website that have a Python tab, and in `live-preview.mdx`,
+  once the bindings are part of a Slint release.
+  The tutorial needs its C# code next to the other languages in `docs/astro/src/content/code/`.
+  Until then, a community page on the fork's `gh-pages` branch, at <https://yurkinh.github.io/slint/>,
+  extends the README with deployment, troubleshooting, and samples, and has sections for iOS and for charts with Microcharts.
+  It also hosts the article "Slint ♥ .NET", at <https://yurkinh.github.io/slint/slint-loves-dotnet/>,
+  a tour of the bindings up to preview.10, which the documentation's overview links to,
+  and "Slint ♥ .NET, Part 2", at <https://yurkinh.github.io/slint/slint-loves-dotnet-2/>, with only what's new since: the browser and DrawnUI.
+  The page has a Web section from preview.11, and View Models, `SlintEmbedFiles`, and `SlintPrecompile` from preview.12.
+  Part 2, now covering preview.11 and preview.12, waits for approval on the local branch `slint-loves-dotnet-2-draft`.
+  It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
+  The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
+- **17.** Platforms beyond the desktop: packages for Android and iOS, and the `linuxkms` backend on embedded Linux,
+  which works in a virtual machine and waits for a test on real hardware.
+  The packages ship the native library for macOS, Linux, and Windows, and for Android from 1.19.0-preview.7.
+  Both mobile platforms follow the C++ API, where Slint owns the entry point and calls the application's code,
+  so neither needs Native AOT or .NET 11.
+  - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
+    the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
+    Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
+    - Published in 1.19.0-preview.8: Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
+      Android ends the process of an app in the background when it needs memory,
+      and starts a new one with the state the app saved when the user returns,
+      and `SlintActivity` also ends the process when Android destroys the activity.
+      `android_main` installs the platform with an event listener, which calls back into C# on the Slint thread:
+      `SlintSaveState` returns the bytes to keep, `SlintRestoreState` gets them back once per process,
+      and `SlintPause`, `SlintResume`, and `SlintLowMemory` report the other events.
+      The bytes go through a buffer that C# fills with `slint_dotnet_android_state_set`, so that neither side frees the other's memory.
+      `examples/todo/dotnet-android` keeps its list this way, like the Rust version.
+    - Next, once .NET 11 is out: hot reload on Android, to re-test and design with it.
+      With .NET 10, `dotnet watch` deploys and starts an app, but its Hot Reload agent never connects back,
+      for a plain `dotnet new android` app as much as for a Slint one, so C# changes don't apply.
+      Live reload of `.slint` files would need the changed files on the device, since the app loads them from its files directory;
+      until then, `Slint.targets` ignores `SlintLivePreview` on Android, with the warning `SLINT002`,
+      instead of generating code that loads the files from the build machine's paths.
+  - iOS next, in about three to four weeks to a preview, through the winit backend and Skia on Metal, like Rust and C++.
+    Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain` and never returns,
+    instead of `UIApplication.Main` with a C# app delegate.
+    The app's `Info.plist` names Slint's `SlintWindowSceneDelegate` in its scene manifest, which iOS 27 requires.
+    `slint-dotnet` builds as a dynamic framework in an `.xcframework`, which the package embeds with a `NativeReference`;
+    a static library, as Slint's C++ build makes, worked too, but was too large for a NuGet package.
+    An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
+    - Phase 0, a prototype, worked: the C# `Main` starts UIKit through `Run`, P/Invoke finds the native library,
+      and a window and its callbacks work in the simulator.
+    - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the framework `NativeReference` and the bundle resources in `Slint.targets`,
+      and the resolver for the framework; `Slint.dll` needs no `net10.0-ios` build.
+    - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
+    - Phase 3, done: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
+      and tested by `test_ios_package`, which builds an app from the packages and starts it in a simulator.
+      A package with it worked locally, and the first dry run of the publish workflow built and packed it.
+      That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed,
+      and a second dry run passed every job.
+      Published in 1.19.0-preview.10, with the templates of item 20.
+    - Phase 4, done, retested on 2026-11-07 with 1.20.0:
+      - On an iPhone 13 with iOS, signed by a free personal team, Release builds of the todo example and lols work.
+        lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
+      - On the iPhone, the todo example takes text from the on-screen keyboard, keeps its list across the background,
+        and follows rotation; an app from `dotnet new slint-ios` with the preview.11 packages of nuget.org starts.
+      - Apps on Android and iOS lacked the images of their `.slint` files, such as the todo example's window icon,
+        since only the `.slint` files went into the APK or the bundle.
+        `SlintEmbedFiles` is now on by default there, and the assembly embeds the images too.
+      - The OpenGL samples run without their OpenGL content on iOS, as designed: Slint renders with Skia through WGPU on Metal,
+        and its rendering notifier offers no OpenGL there. The plotter, which draws 3D in C#, works.
+      - The app lifecycle needs no bindings: UIKit's notifications, which .NET for iOS offers in C#, arrive on the main thread,
+        which is the Slint thread. `examples/todo/dotnet-ios` writes its list to a file when the app enters the background,
+        and reads it at startup, with `TodoState`, which the Android version now shares.
+      - Native AOT works on the iPhone, with `PublishAot` in the app's project and `dotnet publish -r ios-arm64`:
+        the app has no Mono runtime or assemblies, only its executable and the framework.
+        The iOS SDK takes `PublishAot` only when publishing for a device, and as `-p:`, it would also reach `Slint.csproj`.
+    - Later, postponed until .NET 11, like on Android: Hot Reload on iOS.
+      `dotnet watch` needs `--device` with more than one simulator booted,
+      and the iOS SDK refuses it unless Mono's interpreter is on, with `UseInterpreter` in the project,
+      since iOS allows no JIT; `.slint` live reload would also need the changed files in the app's container.
+    - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
+      so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
+      and a way to show a Metal texture in an `Image`, both new work in Slint.
+  - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
+    for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:
+    - The software renderer runs all the tested samples, including the Gallery, the printer demo, and lols,
+      and libinput delivers keys and clicks: a virtual keyboard from `/dev/uinput` adds a todo.
+    - The OpenGL renderers failed at the first frame, because `GbmDisplay` named a modifier to a driver
+      without `DRM_CAP_ADDFB2_MODIFIERS`. It now checks the capability, like `GbmDmabufDisplay`,
+      and Skia, FemtoVG, and both OpenGL samples render; that change is upstream as #14565, see item 14.
+    - Building `slint-dotnet` without the `live-preview` feature failed, since `is_window` needs the interpreter's `internal` feature,
+      which `Cargo.toml` now enables directly.
+    - The Linux .NET job of CI loads `vkms`, the kernel's virtual display driver, and starts the todo example
+      on `linuxkms-software` as root, failing on an error or when no frame was rendered.
+      A probe on GitHub's runners rendered it at 60 frames per second on Ubuntu 22.04 and 24.04,
+      and a `kmsgrab` screenshot of the `vkms` display showed the UI.
+      Ubuntu 22.04 has `vkms` in `linux-modules-extra`, which the step installs, and 24.04 has it already.
+      The runners also have a Hyper-V display; `linuxkms` takes the first card with a connected output, which is `vkms`'s `card0`.
+      The step passed its first run in the job itself.
+    - Next: a Raspberry Pi, for real hardware and a touchscreen.
+- **21.** Microcharts for Slint, in the branch [`slint`](https://github.com/yurkinh/Microcharts/tree/slint) of the fork yurkinh/Microcharts, MIT licensed:
+  `Microcharts.Slint` next to its views for MAUI, iOS, and Android, for a pull request to Microcharts.
+  There's no package of our own: apps use Microcharts' packages, and `Microcharts.Slint` once Microcharts publishes it.
+  - What there is: `Microcharts.Core`, about 4,300 lines, draws eight chart types onto an `SKCanvas` with SkiaSharp,
+    through `Chart.Draw(canvas, width, height)`:
+    bar, line, point, donut, pie, radar, radial gauge, and half radial gauge, and legacy versions of the first three.
+    Each platform view, about 80 lines, is a Skia canvas view that calls `Draw`, and redraws on the chart's `Invalidated` event.
+    `AnimationProgress` drives the entrance animation, stepped by an `ITimer` that `Microcharts.Timer.Create` makes.
+  - The port keeps that drawing: `Microcharts.Slint` draws a chart into an `SKBitmap` at the view's size in physical pixels,
+    and hands the pixels to a Slint `Image` with `Image.FromPremultipliedRgba8`.
+    Slint draws no chart itself, so the charts look the same as on MAUI, on every platform and renderer that Slint has,
+    including `linuxkms` with the software renderer.
+    The cost is a CPU draw and a copy per frame, which matters only while a chart animates.
+  - Not chosen, for now: charts in `.slint` with `Path` and repeaters, drawn by Slint's renderer without SkiaSharp.
+    They'd follow Slint's styles and live preview, and leave out SkiaSharp's native library, about 10 MB per platform,
+    but would rewrite every chart type and its text measurement.
+  - Phase 0, done: a prototype on macOS with one bar chart, drawn by SkiaSharp into an `Image`, animated, and resized with the window.
+    - A `net10.0` app that references `Microcharts.Core` gets no MAUI package or assembly, despite `UseMaui` in its project,
+      and runs on the desktop; the app gets SkiaSharp's native library, 15 MB on macOS.
+    - The chart draws at the view's size in physical pixels, with the canvas scaled by the window's scale factor,
+      so its sizes, which are in pixels, scale like the rest of the UI. At 2x, the labels are sharp.
+    - At 1920 by 934 pixels and 2x, a frame takes 1.4 ms to draw and copy on average, and 12 ms for the first one;
+      the animation of 1.5 s has about 45 frames. `Microcharts.Timer.Create` makes a timer on Slint's `Timer`.
+    - Skia draws premultiplied pixels, and `FromRgba8` takes straight alpha.
+      With an opaque background, the default, the two are the same.
+      With a transparent one, the light tops of the bars came out much darker, such as 5, 13, 17 instead of 40, 104, 135 at alpha 32.
+      Converting with Skia's `ReadPixels` fixes it, at 3 ms more per frame.
+      Instead, Slint.NET now has `Image.FromPremultipliedRgba8`, in 1.19.0-preview.10, on Slint's `RGBA8Premultiplied` buffers,
+      which Skia, FemtoVG, and the software renderer each draw; the prototype ran with each of them.
+  - Phase 1, done: `Sources/Microcharts.Slint`, for `net10.0`, `net10.0-android`, and `net10.0-ios`, like `Microcharts.Core`,
+    so that an Android app gets the Android build of Slint, with `SlintActivity`.
+    - `ChartRenderer` draws a chart into images at an element's size, again when the chart invalidates or the size changes.
+      A size change draws on a timer of zero, once the callback returns,
+      since drawing in it replaced the row of a repeater while Slint was still creating it.
+    - `SlintTimer` steps the animations on the Slint thread; `SlintTimer.Install` comes before the charts, which animate when they get entries.
+    - `chart-view.slint` has a `ChartView`, an `Image` that reports its size.
+      The C# side has no `.slint` file, so the library needs no `.slint` resources on Android and iOS.
+    - `SlintReference.targets` references `yurkinh.slint.net` 1.19.0-preview.10, or a Slint checkout with `-p:SlintRepository=<path>`.
+    - `Microcharts.Core` builds without `UseMaui`, which gave its assemblies MAUI's XAML namespace attributes.
+      Mono decodes those when it loads the assembly, so an Android app without MAUI aborted at startup,
+      with the published `Microcharts.Core` too; it uses no MAUI API, and `Microcharts.Maui` still builds.
+  - Phase 2, done: `Sources/Microcharts.Samples.Slint`, the charts of `Data.CreateQuickstart`, in a desktop, an Android, and an iOS project,
+    which share the UI and `Gallery.cs`. It runs on macOS, the Pixel 9 emulator, and the iPhone simulator,
+    where SkiaSharp's framework and Slint's framework sit side by side without a conflict.
+    The fork's README has a Slint section with the code and screenshots.
+  - Phase 3, next: the pull request to [microcharts-dotnet/Microcharts](https://github.com/microcharts-dotnet/Microcharts),
+    now that 1.19.0-preview.10, which `Microcharts.Slint` needs for `Image.FromPremultipliedRgba8`, is on nuget.org.
+    Microcharts asks for an issue before a pull request, and for whoever adds a framework to support it.
+    It adds the projects to `Microcharts.slnx` and a `Microcharts.Slint` package to the publish workflow,
+    which depends on `yurkinh.slint.net`, until Slint.NET has an official package ID.
+  - Risks: on embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
+    Native AOT on iOS links both Skias into one executable, which is untested.
+- **23.** DrawnUI for Slint, in the branch [`slint`](https://github.com/yurkinh/DrawnUi.Maui/tree/slint) of the fork yurkinh/DrawnUi.Maui, MIT licensed:
+  `DrawnUi.Slint`, a host for DrawnUI next to its MAUI, Blazor, OpenTK, and WPF hosts, for a pull request to DrawnUI.
+  DrawnUI is a UI framework drawn with SkiaSharp; a host gives its `Canvas` a surface, input, a UI thread, and frames.
+  - Phase 0 and 1, done: `SlintCanvasHost` runs a canvas in a `DrawnUiView` of `drawnui.slint`, on a raster surface,
+    with several views per window, the mouse, the wheel, and the keyboard, and DrawnUI's main thread on the Slint thread.
+  - Phase 2, done: the GPU path, opt-in with `SlintCanvasHost.UseGpu`, draws on the OpenGL context of Slint's FemtoVG renderer.
+    Slint's Skia renderer keeps its own Skia state of the context, which a second Skia on that context breaks.
+  - Phase 3, done: touch, a hidden `TextInput` for on-screen keyboards, and the sample on Android and iOS.
+    Still to check by hand: the on-screen keyboard's text reaching a DrawnUI editor on Android.
+    Not done: a `linuxkms` run.
+  - Phase 4, done: the `DrawnUi.Slint` package, whose build files make `drawnui.slint` importable and copy it to the output;
+    `DrawnUi.Slint.Game`; `SlintGallery`, with the OpenTK Hello app's pages, compiled unchanged, next to a Slint sidebar;
+    and `SlintPong`, DrawnUI's shared Pong in a whole window.
+  - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
+    so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
+  - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
 - **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:
   `Mapsui.UI.Slint` next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto, Blazor, Android, and iOS, for a pull request to Mapsui.
   Mapsui is a map component for .NET that draws with SkiaSharp,
