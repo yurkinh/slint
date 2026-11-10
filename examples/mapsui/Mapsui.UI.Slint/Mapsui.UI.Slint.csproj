@@ -18,6 +18,23 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Selects the namespace of the copy of Mapsui's shared map control. -->
     <DefineConstants>$(DefineConstants);__SLINT__</DefineConstants>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <!-- The package, <SlintPackageId>.Mapsui, which depends on Slint's package of the same version. -->
+  <PropertyGroup>
+    <SlintPackageId Condition="'$(SlintPackageId)' == ''">Slint</SlintPackageId>
+    <PackageId>$(SlintPackageId).Mapsui</PackageId>
+    <Version Condition="'$(Version)' == ''">1.20.0</Version>
+    <Authors Condition="'$(SlintPackageAuthors)' != ''">$(SlintPackageAuthors)</Authors>
+    <Authors Condition="'$(SlintPackageAuthors)' == ''">Slint Developers</Authors>
+    <Description>A Mapsui map control for Slint: OpenStreetMap and other tiles, layers, styles, and widgets of Mapsui in a MapsuiView, with mouse, wheel, touch, pinch, and rotation.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>slint;mapsui;map;maps;gis;osm</PackageTags>
+    <PackageProjectUrl Condition="'$(SlintPackageRepositoryUrl)' != ''">$(SlintPackageRepositoryUrl)</PackageProjectUrl>
+    <RepositoryUrl Condition="'$(SlintPackageRepositoryUrl)' != ''">$(SlintPackageRepositoryUrl)</RepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <!-- The copy keeps Mapsui's own code style. -->
     <NoWarn>$(NoWarn);CS1591;IDE0005;IDE0055</NoWarn>
   </PropertyGroup>
@@ -26,8 +43,15 @@
     <PackageReference Include="Mapsui.Tiling" Version="5.2.0-beta.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="mapsui.slint" Pack="true" PackagePath="slint/" />
+    <!-- Adds the library path @mapsui to the apps that reference the package. -->
+    <None Include="build/Mapsui.props" Pack="true" PackagePath="buildTransitive/$(PackageId).props" />
+  </ItemGroup>
   <!-- Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead. -->
   <ItemGroup>
-    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
+    <!-- The apps that reference the package get the build files of Slint too, for <SlintFile> and the native libraries. -->
+    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" PrivateAssets="none" />
   </ItemGroup>
 </Project>

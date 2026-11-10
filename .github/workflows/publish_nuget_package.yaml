@@ -1,7 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Builds the Slint, Slint.Compiler, and Slint.Markup NuGet packages with the native binaries of every platform and the browser, and the templates package,
+# Builds the Slint, Slint.Compiler, and Slint.Markup NuGet packages with the native binaries of every platform and the browser,
+# the templates package, and Slint.Mapsui, the map control of examples/mapsui,
 # checks that projects, and apps from the templates, can build and run with them, and optionally publishes them to nuget.org.
 
 name: Build and publish the NuGet packages
@@ -179,6 +180,7 @@ jobs:
                               -p:SlintPackageRepositoryUrl="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
                       # The README of the packages installs them by ID.
                       sed -i -e "s/dotnet add package Slint /dotnet add package $SLINT_PACKAGE_ID /" -e "s/dotnet add package Slint.Markup/dotnet add package $SLINT_PACKAGE_ID.Markup/" README.md
+                      sed -i -e "s/dotnet add package Slint.Mapsui/dotnet add package $SLINT_PACKAGE_ID.Mapsui/" -e "s/the package \`Slint.Markup\`/the package \`$SLINT_PACKAGE_ID.Markup\`/" ../../examples/mapsui/Mapsui.UI.Slint/README.md
                       { head -n 1 README.md
                         printf '\n> This is a community build of the Slint .NET bindings, not published by the Slint project.\n'
                         tail -n +2 README.md; } > README.community.md
@@ -190,6 +192,7 @@ jobs:
                   chmod +x "$GITHUB_WORKSPACE/artifacts/compiler/linux-x64/slint-compiler"
                   dotnet pack Slint.Markup -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerPath="$GITHUB_WORKSPACE/artifacts/compiler/linux-x64/slint-compiler"
                   dotnet pack Templates -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}"
+                  dotnet pack ../../examples/mapsui/Mapsui.UI.Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}"
             - uses: actions/upload-artifact@v7
               with:
                   name: nuget-packages
@@ -286,6 +289,46 @@ jobs:
                   dotnet run
                   dotnet publish -c Release --use-current-runtime -p:PublishAot=true -o aot
                   ./aot/markup
+            - name: Build and run a project with the Mapsui package
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  mkdir map && cd map
+                  dotnet new console
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package "$SLINT_PACKAGE_ID.Mapsui" --version "$version"
+                  mkdir ui
+                  printf 'import { MapsuiView } from "@mapsui";\nexport { MapsuiHost } from "@mapsui";\nexport component App inherits Window { preferred-width: 320px; preferred-height: 240px; MapsuiView { } }\n' > ui/app.slint
+                  sed -i.bak 's#</Project>#<ItemGroup><SlintFile Include="ui/app.slint" /></ItemGroup></Project>#' map.csproj
+                  cat > Program.cs <<'EOF'
+                  using Mapsui.UI.Slint;
+
+                  static class Program
+                  {
+                      [System.STAThread]
+                      static int Main()
+                      {
+                          using var app = map.App.Create();
+                          using var control = MapControl.Attach(app.Instance);
+                          var result = 1;
+                          // The view has a size once the window is shown, and Mapsui draws a frame of it.
+                          Slint.Timer.SingleShot(System.TimeSpan.FromSeconds(2), () =>
+                          {
+                              control.DrawNow();
+                              System.Console.WriteLine($"frame {control.FrameSize}");
+                              result = control.FrameSize.Width > 0 ? 0 : 1;
+                              Slint.EventLoop.Quit();
+                          });
+                          app.Show();
+                          Slint.EventLoop.Run();
+                          return result;
+                      }
+                  }
+                  EOF
+                  dotnet run
             - name: Build apps from the templates with the packages
               shell: bash
               run: |

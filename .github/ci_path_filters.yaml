@@ -187,6 +187,7 @@ api_dotnet:
  - 'scripts/build_dotnet_ios.sh'
  - 'scripts/dotnet_ios_smoke_test.sh'
  - 'examples/*/dotnet-browser/**'
+ - 'examples/mapsui/**'
  - 'internal/backends/emscripten/**'
  - 'scripts/build_dotnet_browser.sh'
  - 'scripts/strip_wasm_features.py'

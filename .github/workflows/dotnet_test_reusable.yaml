@@ -51,6 +51,12 @@ jobs:
               run: dotnet format examples/dotnet.slnx --verify-no-changes
             - name: Start the examples
               run: dotnet run examples/dotnet-smoke-test.cs -- examples/dotnet.slnx
+            # The tests of the Mapsui control run on the testing backend, without tiles from the network.
+            - name: Test the Mapsui control, and build its samples
+              run: |
+                  dotnet run --project examples/mapsui/Mapsui.UI.Slint.Tests
+                  dotnet build examples/mapsui/dotnet
+                  dotnet build examples/mapsui/dotnet-markup
             # The kernel's virtual display driver, vkms, stands in for the display of a device without a desktop.
             # The kernel of Ubuntu 22.04 has it in linux-modules-extra.
             - name: Start the todo example on linuxkms

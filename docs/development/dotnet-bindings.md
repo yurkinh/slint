@@ -1155,6 +1155,7 @@ Next:
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
 - **28.** Mapsui for Slint: `Mapsui.UI.Slint`, a map control for Slint.NET next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto,
   Windows Forms, Blazor, Android, iOS, and the browser, MIT licensed, about 5 weeks.
+  Status: phases 0 to 5 done on 2026-11-10, on macOS, Android, iOS, and the browser; Windows and the decision with Mapsui's maintainers are left.
   [Mapsui](https://github.com/Mapsui/Mapsui) is a map component for .NET that draws with SkiaSharp,
   with tiles from OpenStreetMap and other servers, vector layers, styles, widgets, and NetTopologySuite geometries.
   - What there is, at 4bed0e7 of 2026-11-09, the 5.0 betas:
@@ -1270,8 +1271,25 @@ Next:
     - `examples/mapsui/dotnet-markup` shows a map below buttons for four cities, in UI written in C#.
       The map stays with the page's first instance, so a rebuild of the page, such as by hot reload of its structure, needs it attached again.
     - Not in the controls gallery of item 26, as the plan had it, since the gallery would then need Mapsui and SkiaSharp.
-  - Phase 5, 3 days: the package, built and tested in CI, and, after the decision, the pull request to Mapsui or the first release of `Mapsui.Slint`,
-    depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
+  - Phase 5, done on 2026-11-10, except the decision: the package, `<SlintPackageId>.Mapsui`, so `yurkinh.slint.net.Mapsui`,
+    an ID outside Mapsui's own prefix, which its owners can reserve on nuget.org.
+    - It depends on Slint's package of the same version, with its build files, so an app needs only this package,
+      and on Mapsui's packages; MIT, with a README of its own.
+    - `buildTransitive/<id>.props` adds `mapsui.slint`, packed in `slint/`, as the library path `@mapsui`,
+      and with `MapsuiSlintMarkup=true` as a `SlintFile` with `Markup="true"`, for the `MapsuiView` builder,
+      which needs the export of globals of phase 4, so it works from the preview after 1.19.0-preview.13.
+    - Packed against 1.19.0-preview.13 of nuget.org, it works in an app outside the repository on macOS,
+      and in an app from the `slint-android` template on the Pixel_9 emulator:
+      with packages, NuGet picks Slint's Android assembly for the whole app, so the missing Java types of phase 2 don't happen.
+    - CI: `dotnet_test_reusable.yaml` runs the control's tests and builds the desktop and markup samples on Linux, macOS, and Windows,
+      and `examples/mapsui/**` is in the paths of `api_dotnet`.
+      `publish_nuget_package.yaml` packs it with the other packages, and builds and runs an app with it on the three systems,
+      which draws a frame; the step works locally.
+      So the next release publishes it, as the other packages.
+    - The decision: [a draft of an issue](dotnet-mapsui-issue-draft.md) asks Mapsui's maintainers whether they want the control in their repository,
+      and reports what we found in Mapsui: the `shp` culture of the .NET 10 SDK, IDE0055 with its analyzers,
+      the rotation snapping, and the user agent on Android.
+      It waits for the fork's maintainer to post it.
   - Later: DrawnUI's OpenGL path, for less copying.
   - Limits: inside a view, screen readers see one image; Mapsui's `MapView`, a MAUI control with pins and callouts, isn't part of it.
 

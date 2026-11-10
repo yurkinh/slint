@@ -37,7 +37,7 @@ and point an app at it with `$env:SLINT_DOTNET_NATIVE_LIBRARY = "$PWD\target\rel
 
 Run them in this order; each one builds on the one before.
 
-1. The tests of the library, 137 or more, with one skipped:
+1. The tests of the library, 138 or more, with one skipped:
 
    ```powershell
    dotnet run --project api/dotnet/Slint.Tests
@@ -73,27 +73,55 @@ Run them in this order; each one builds on the one before.
 
    The publish shows no `IL` warning, and the window opens.
 
-6. The Mapsui prototype of item 28, with tiles from OpenStreetMap, which needs the network:
+6. The Mapsui control of item 28, with tiles from OpenStreetMap, which needs the network.
+   The tests of the control pass without a screen, 10 or more:
 
    ```powershell
    dotnet run --project examples\mapsui\Mapsui.UI.Slint.Tests
+   ```
+
+   The desktop sample shows Kyiv; dragging with the mouse pans the map, and the wheel zooms it a level per notch.
+   On a touchscreen or a precision touchpad, two fingers zoom and rotate the map, and a tap with two fingers raises no `Info`.
+   The scripted run prints the scale, the frame size, whether panning and the wheel work, and the draw and copy times;
+   record them with the scale of the display, and again with `$env:SLINT_SCALE_FACTOR = "2"`:
+
+   ```powershell
    cd examples\mapsui\dotnet
    dotnet run
    $env:MAPSUI_BENCH = "1"; dotnet run; Remove-Item Env:MAPSUI_BENCH
+   cd ..\..\..
    ```
 
-   The tests of the control pass without a screen; the window shows Kyiv, and dragging with the mouse pans the map and the wheel zooms it.
-   On a touchscreen or a precision touchpad, two fingers zoom and rotate the map, and a tap with two fingers raises no `Info`.
-   Mapsui's samples need a checkout of Mapsui next to the repository, and `--check` shows each of them and prints the ones that failed,
-   6 on macOS, for servers that are gone:
+   Mapsui's samples need a checkout of Mapsui next to the repository.
+   `--check` shows each sample and prints the ones that failed, 6 on macOS, for servers that are gone.
+   The markup sample shows a map below four buttons, which move it to their city:
 
    ```powershell
    git clone --branch 5.2.0-beta.1 https://github.com/Mapsui/Mapsui.git ..\Mapsui
    dotnet run --project examples\mapsui\samples -- --check
    dotnet run --project examples\mapsui\dotnet-markup
    ```
-   The scripted run prints the scale, the frame size, whether panning and the wheel work, and the draw and copy times;
-   record them with the scale of the display, and again with `$env:SLINT_SCALE_FACTOR = "2"`.
+
+   The browser sample needs the `wasm-tools` workload, rustup's `wasm32-unknown-emscripten` target, and Chrome.
+   `scripts\build_dotnet_browser.sh` is a bash script, so run it in Git Bash;
+   `CHROME` points the steps at Chrome, and each run ends without a `FAILED` line:
+
+   ```powershell
+   bash scripts/build_dotnet_browser.sh
+   cd examples\mapsui\dotnet-browser
+   dotnet publish -c Release
+   $env:CHROME = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+   node ..\..\..\scripts\run_in_chrome.mjs steps\run.json wwwroot bin\Release\net10.0\publish\wwwroot
+   $env:MOBILE = "1"; $env:SCALE = "3"
+   node ..\..\..\scripts\run_in_chrome.mjs steps\touch.json wwwroot bin\Release\net10.0\publish\wwwroot
+   Remove-Item Env:MOBILE, Env:SCALE
+   cd ..\..\..
+   ```
+
+   The package of the control, packed against the Slint package of nuget.org, works in an app outside the repository,
+   as the step "Build and run a project with the Mapsui package" of `publish_nuget_package.yaml` does:
+   pack it with `dotnet pack examples\mapsui\Mapsui.UI.Slint -c Release -o $env:TEMP\packages -p:Version=<version> -p:SlintPackageId=yurkinh.slint.net`,
+   and follow that step in an empty directory; the app prints a frame size, and exits with 0.
 
 7. The packages of nuget.org, once a preview is published, in an empty directory:
 
