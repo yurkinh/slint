@@ -1155,7 +1155,8 @@ Next:
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
 - **28.** Mapsui for Slint: `Mapsui.UI.Slint`, a map control for Slint.NET next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto,
   Windows Forms, Blazor, Android, iOS, and the browser, MIT licensed, about 5 weeks.
-  Status: phases 0 to 5 done on 2026-11-10, on macOS, Android, iOS, and the browser; Windows and the decision with Mapsui's maintainers are left.
+  Status: phases 0 to 5 done on 2026-11-10, on macOS, Android, iOS, and the browser, and checked on Windows the same day;
+  the decision with Mapsui's maintainers is left.
   [Mapsui](https://github.com/Mapsui/Mapsui) is a map component for .NET that draws with SkiaSharp,
   with tiles from OpenStreetMap and other servers, vector layers, styles, widgets, and NetTopologySuite geometries.
   - What there is, at 4bed0e7 of 2026-11-09, the 5.0 betas:
@@ -1290,6 +1291,21 @@ Next:
       and reports what we found in Mapsui: the `shp` culture of the .NET 10 SDK, IDE0055 with its analyzers,
       the rotation snapping, and the user agent on Android.
       It waits for the fork's maintainer to post it.
+  - Windows, on 2026-11-10, Windows 11 on x64, with check 6 of [the Windows checklist](dotnet-windows-testing.md):
+    - The control's tests pass, 10 of 10.
+    - `MAPSUI_BENCH=1` with the release build: panning and the wheel work.
+      At 1x, frames of 884×584 px take 1.4–1.7 ms to draw, at most 6.6 ms, and 0.5–0.6 ms to copy.
+      At 2x, frames of 1768×1168 px take 25 ms to draw, at most 44 ms, and 2.4–2.5 ms to copy.
+      Drawing at 2x is about 12 times as slow as on macOS, in SkiaSharp's raster drawing, which needs profiling.
+      With the debug build, the copy takes 22 ms at 1x and 90 ms at 2x, so measure with the release build.
+    - `--check`: 149 of 153 samples show and draw without an error.
+      The other 4 are among the 6 of macOS: `LoggingWidget`, `WmsBasilicata`, `WmsOpenSea`, and `WmsProjectionDotSpatial`.
+    - The first build of the samples after cloning Mapsui failed with IDE0055 in `Mapsui.csproj`, though `EnforceCodeStyleInBuild=false` is set;
+      the next build passed, and the cause is open.
+    - Found and fixed: the six `dotnet-markup` samples, this one included, had top-level statements without `[STAThread]`,
+      so they threw at startup on Windows, as item 11 intends; they now have an explicit `[STAThread] Main`, and open their windows.
+      CI's smoke test didn't catch it, since the testing backend skips the check.
+    - Left for a person: panning and zooming with the mouse, two fingers on a touchscreen, the browser sample, and the package outside the repository.
   - Later: DrawnUI's OpenGL path, for less copying.
   - Limits: inside a view, screen readers see one image; Mapsui's `MapView`, a MAUI control with pins and callouts, isn't part of it.
 
