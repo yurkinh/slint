@@ -261,7 +261,7 @@ internal sealed class StatePreservationPage : Component
                 new Button("−", () => _parentCounter.Value--).Width(60).Height(44),
                 new Button("+", () => _parentCounter.Value++).Width(60).Height(44)),
             new Text(() => _parentNote.Value).FontSize(14).Color(Colors.Grey),
-            Caption($"Page created: {_createdAt:hh:mm:ss tt}")),
+            Caption($"Page created: {_createdAt:T}")),
         Section("Navigation Test",
             Caption("Push a child page, interact with it, then pop back. The parent counter above should retain its value."),
             new Button("Push Child Page", () =>
@@ -290,7 +290,7 @@ internal sealed class StatePreservationChildPage(int parentValue) : Component
                 new Button("+", () => _childCounter.Value++).Width(60).Height(44))),
         Section("Context",
             BodyText($"Parent counter was {parentValue} when navigated here"),
-            Caption($"Child created: {_childCreatedAt:hh:mm:ss tt}"),
+            Caption($"Child created: {_childCreatedAt:T}"),
             new Button("Pop back to parent", () => Navigation!.Pop())));
 }
 
@@ -395,7 +395,7 @@ internal sealed class PickersPage : Component
             new Text(() => $"Selected date: {_selectedDate.Value:D}").FontSize(14)),
         Section("TimePicker",
             new Button("Pick a time").OnClicked(new Expr("time-picker.show()")),
-            new Text(() => $"Selected time: {DateTime.Today.Add(_selectedTime.Value):hh\\:mm tt}").FontSize(14)),
+            new Text(() => $"Selected time: {DateTime.Today.Add(_selectedTime.Value):t}").FontSize(14)),
         Section("Picker (Dropdown)",
             new ComboBox().Model(ColorOptions).CurrentIndex(() => _pickerIndex.Value, index => _pickerIndex.Value = index),
             new Text(() => _pickerIndex.Value >= 0 && _pickerIndex.Value < ColorOptions.Length
