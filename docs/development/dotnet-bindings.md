@@ -614,6 +614,8 @@ Done:
       phones show their keyboard, and text without key events, an input method's composition, and the browser's `paste`, `copy`, and `cut` events reach Slint.
       Outside those events, a copy goes to `navigator.clipboard`, and a paste gets nothing, since the browser reads the clipboard only in a `paste` event.
     - Touch works with pointer events; tested with Chrome's emulation of a phone at a device pixel ratio of 3.
+      Since phase 3 of item 28, each finger reaches Slint as a touch point, as with winit,
+      so two fingers give `ScaleRotateGestureHandler` pinches and rotations.
     - The assembly embeds the files at their paths relative to the project, and `GeneratedApi` writes them under `/slint/`,
       one level deeper for each `../` they start with.
       The generated code has absolute include and library paths, so a project with them also embeds its directory, to map them.
@@ -1227,8 +1229,27 @@ Next:
         the fix reads the compiler's dependency file, and is on `dotnet_bindings`.
       - A library of `slint-dotnet` built with NDK 28 fails to load; [Android](#android) now names NDK 30.
     - Mapsui's dependencies BruTile and NetTopologySuite warn about trimming in the iOS build, which is theirs to fix.
-  - Phase 3, 1 week: the browser, where SkiaSharp's WebAssembly library links into the same app as Slint's,
-    which item 24 hasn't tried, and where tile servers need CORS; tested in Chrome, like item 24.
+  - Phase 3, done on 2026-11-10: the browser, in `examples/mapsui/dotnet-browser`, with `SampleMap.cs` and `ui/main.slint` of the other samples.
+    - SkiaSharp's and HarfBuzzSharp's WebAssembly libraries link into `dotnet.native.wasm` next to Slint's, which draws with FemtoVG or its software renderer, not Skia,
+      so nothing clashes; the app downloads 42 MB of WebAssembly, or 9.2 MB with Brotli, 2 MB more than Slint alone.
+    - OpenStreetMap's tiles load with `fetch`, since its servers allow other origins, and the browser sends its own user agent.
+    - `steps/run.json` and `steps/touch.json` drive it in headless Chrome, with new `drag`, `wheel`, and `pinch` steps of `run_in_chrome.mjs`,
+      and the console's viewport lines: the wheel zooms a level, a drag pans 100 pixels, and a pinch zooms and rotates,
+      with FemtoVG, with the software renderer, and as a phone at 3x, where frames are 2352×1632 pixels.
+    - Found and fixed:
+      - The Emscripten backend passed fingers on as one mouse, so two fingers jumped between their points;
+        `slint_emscripten.js` now gives each finger the smallest free id, and `slint_em_on_touch` passes it to Slint's touch recognizer.
+        `BrowserTest`'s steps, its touch steps included, pass as before.
+      - Slint's touch recognizer reported the change of the scale as a difference, which `ScaleRotateGestureHandler` multiplies in as a ratio,
+        as for the trackpad, so a pinch of fingers zoomed in too far and out too little on every platform;
+        it now reports `current / last - 1`, with a unit test of two steps. This is a bug of Slint's `master`, for a pull request of its own.
+      - Mapsui fetches the data of a new viewport only on a discrete change, which a release gives a drag, so after a pinch the tiles stayed blurry;
+        the control refreshes when a pinch ends, with a test.
+    - In phone emulation, Chrome reports a wheel event of 120 pixels as 40, so the control zooms continuously there; phones have no wheel.
+    - Mapsui's rotation snapping adds the rotation of the whole gesture to the current rotation, so a rotation back towards 0 can overshoot;
+      that's Mapsui's shared code, the same on its other platforms.
+    - In the browser, `OpenInBrowser` opens a link with `window.open` through a `JSImport`, since there's no `Process.Start`;
+      a click on the attribution of OpenStreetMap opens its copyright page in a new tab.
   - Phase 4, 4 days: `Mapsui.Samples.Slint`, a sample browser with a Slint list of `Mapsui.Samples.Common`, which runs unchanged,
     like `Mapsui.Samples.Eto`; and the `MapsuiView` builder of `Slint.Markup`, with a page of the gallery of item 26 that shows a map.
   - Phase 5, 3 days: the package, built and tested in CI, and, after the decision, the pull request to Mapsui or the first release of `Mapsui.Slint`,

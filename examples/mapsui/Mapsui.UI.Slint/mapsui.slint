@@ -47,8 +47,6 @@ export component MapsuiView inherits Rectangle {
     }
 
     ScaleRotateGestureHandler {
-        width: parent.width;
-        height: parent.height;
         started => {
             MapsuiHost.pinch(root.view-id, 0, self.scale, self.rotation, self.center.x, self.center.y);
         }

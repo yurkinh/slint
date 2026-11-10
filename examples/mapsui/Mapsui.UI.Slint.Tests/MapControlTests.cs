@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+using Mapsui.Fetcher;
+using Mapsui.Layers;
 using Mapsui.Manipulations;
 using Mapsui.Utilities;
 using Mapsui.Widgets;
@@ -145,6 +147,44 @@ public sealed class MapControlTests
         Assert.AreEqual(500, map.Map.Navigator.Viewport.Resolution, 0.001);
         window.Hide();
     });
+
+    [TestMethod]
+    public void FetchesTheDataOfTheViewportAfterAPinch() => SlintThread.Run(() =>
+    {
+        using var window = TestWindow.Create();
+        window.Show();
+        using var map = MapControl.Attach(window.Instance, 0);
+        var layer = new FetchCountingLayer();
+        map.Map.Layers.Add(layer);
+        SlintThread.Pump();
+        map.Map.Navigator.CenterOnAndZoomTo(new MPoint(0, 0), 1000);
+        void Pinch(int phase, double scale) => window.Instance.InvokeGlobal("MapsuiHost", "pinch", 0, phase, scale, 0, 100, 150);
+
+        Pinch(0, 1);
+        Pinch(1, 2);
+        var fetches = layer.DiscreteFetches;
+        Pinch(2, 2);
+
+        Assert.AreEqual(fetches + 1, layer.DiscreteFetches);
+        window.Hide();
+    });
+
+    private sealed class FetchCountingLayer : MemoryLayer, IAsyncDataFetcher
+    {
+        public int DiscreteFetches { get; private set; }
+
+        public void AbortFetch() { }
+
+        public void ClearCache() { }
+
+        public void RefreshData(FetchInfo fetchInfo, Action<Func<Task>> enqueueFetch)
+        {
+            if (fetchInfo.ChangeType == ChangeType.Discrete)
+            {
+                DiscreteFetches++;
+            }
+        }
+    }
 
     [TestMethod]
     public void TakesNoTapFromTheFingersOfAPinch() => SlintThread.Run(() =>

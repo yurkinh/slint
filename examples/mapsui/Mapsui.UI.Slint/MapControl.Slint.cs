@@ -3,6 +3,8 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.JavaScript;
+using System.Runtime.Versioning;
 using Mapsui.Extensions;
 using Mapsui.Manipulations;
 using SkiaSharp;
@@ -78,11 +80,18 @@ public partial class MapControl : IMapControl
         }
     }
 
-    public void OpenInBrowser(string url) =>
+    public void OpenInBrowser(string url)
+    {
+        if (OperatingSystem.IsBrowser())
+        {
+            BrowserWindow.Open(url, "_blank");
+            return;
+        }
         Catch.TaskRun(() =>
         {
             using var process = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         });
+    }
 
     public float? GetPixelDensity() => _component.Window.ScaleFactor;
 
@@ -127,6 +136,11 @@ public partial class MapControl : IMapControl
                 (_pinchCenter, _pinchScale, _pinchRotation) = (center, scale, rotation);
                 break;
             default:
+                // Mapsui fetches the data of a new viewport on a discrete change, which a release gives a drag.
+                if (_pinchCenter != null)
+                {
+                    Refresh();
+                }
                 _pinchCenter = null;
                 break;
         }
@@ -228,6 +242,13 @@ public partial class MapControl : IMapControl
         _frame?.Dispose();
         GC.SuppressFinalize(this);
     }
+}
+
+internal static partial class BrowserWindow
+{
+    [JSImport("globalThis.open")]
+    [SupportedOSPlatform("browser")]
+    public static partial void Open(string url, string target);
 }
 
 /// <summary>

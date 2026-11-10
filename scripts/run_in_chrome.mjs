@@ -13,6 +13,10 @@
 //   { "sleep": <ms> }
 //   { "click": [x, y] }                   in CSS pixels
 //   { "tap": [x, y] }                     a touch
+//   { "drag": [x0, y0, x1, y1] }          with the left mouse button, in 10 moves
+//   { "wheel": [x, y, deltaY] }           a wheel event in pixels, negative to scroll up
+//   { "pinch": [x, y, r0, r1, a0, a1] }   two fingers around x, y, from a distance r0 to r1 from it
+//                                         and from an angle a0 to a1 in degrees, in 10 moves
 //   { "type": "<text>" }                  one key press per character
 //   { "key": "Enter" }                    a DOM KeyboardEvent.key, pressed and released
 //   { "keyDown": "Meta" }, { "keyUp": "Meta" }
@@ -133,6 +137,28 @@ try {
       } else if (step.tap) {
         const [x, y] = step.tap;
         await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+        await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      } else if (step.drag) {
+        const [x0, y0, x1, y1] = step.drag;
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 });
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1 });
+        for (let i = 1; i <= 10; i++) {
+          await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 10, y: y0 + (y1 - y0) * i / 10, button: 'left', buttons: 1 });
+        }
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', buttons: 0, clickCount: 1 });
+      } else if (step.wheel) {
+        const [x, y, deltaY] = step.wheel;
+        await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
+      } else if (step.pinch) {
+        const [x, y, r0, r1, a0, a1] = step.pinch;
+        const fingers = t => {
+          const r = r0 + (r1 - r0) * t;
+          const a = (a0 + (a1 - a0) * t) * Math.PI / 180;
+          const [dx, dy] = [r * Math.cos(a), r * Math.sin(a)];
+          return [{ x: x + dx, y: y + dy, id: 0 }, { x: x - dx, y: y - dy, id: 1 }];
+        };
+        await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(0) });
+        for (let i = 1; i <= 10; i++) await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(i / 10) });
         await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       } else if (step.type) { for (const c of step.type) await key(c, c); }
       else if (step.key) await key(step.key, step.key === 'Enter' ? '\r' : undefined);
