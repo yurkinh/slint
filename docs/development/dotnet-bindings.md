@@ -293,6 +293,8 @@ Dispose the instance explicitly, or capture a `WeakReference` in the callback.
 
 ## Building and Testing
 
+[Testing on Windows](dotnet-windows-testing.md) lists the checks to run on a Windows machine.
+
 ```sh
 cargo build -p slint-dotnet --features testing
 cargo build -p slint-compiler
@@ -1175,11 +1177,22 @@ Next:
       or the package `Mapsui.Slint` in a repository of its own, which depends on Mapsui's packages and copies the shared project, as phase 0 does.
     - Recommended: ask Mapsui's maintainers in an issue after phase 0, with its screenshots and numbers,
       and keep the separate package if they'd rather not move to .NET 10 yet.
-  - Phase 0, 3 days: a prototype in `examples/mapsui/dotnet`, outside Mapsui, with Mapsui's 5.0 betas from nuget.org
-    and a copy of `Mapsui.UI.Shared` under its MIT notice, with a `__SLINT__` define.
-    - OpenStreetMap tiles in a Slint window, panning with the mouse, zooming with the wheel, and redraws on the Slint thread through `InvokeFromEventLoop`.
-    - Measure a frame at 2x, its draw and its copy into an `Image`, while panning; check that the `net9.0` assemblies run in a `net10.0` app,
-      and that the app publishes with Native AOT.
+  - Phase 0, done on 2026-11-10: a prototype in `examples/mapsui/dotnet`, outside Mapsui, with Mapsui 5.2.0-beta.1 from nuget.org,
+    the newest release, whose `Mapsui.UI.Shared` is the same as on `main`.
+    - `MapControl/` has a copy of `MapControl.cs` and `RenderController.cs` of `Mapsui.UI.Shared` under Mapsui's MIT license,
+      with an `#elif __SLINT__` for the namespace, and `MapControl.Slint.cs`, the Slint part, 190 lines like Eto's.
+      The copy compiles unchanged otherwise, so the Slint part covers what the shared file needs.
+    - `ui/mapsui.slint` has `MapsuiView` and `MapsuiHost`; the view reports its size again when C# attaches,
+      through the global's `attached`, since its `init` runs before the handlers exist.
+    - OpenStreetMap tiles show Kyiv next to Slint buttons; `Map.ViewportInitialized` centers the map once the view has a size.
+      Requests for a frame from other threads run once on the Slint thread.
+    - `MAPSUI_BENCH=1` pans through the view's pointer callbacks and zooms with its wheel callback, which both work, and measures,
+      with the release build on an Apple Silicon Mac: at 2x, frames of 1768×822 px take 2.0–2.1 ms to draw, at most 6 ms, and 0.08 ms to copy;
+      at 1x, 0.1–0.2 ms and 0.03 ms. So the raster path is enough, and DrawnUI's OpenGL path stays for later.
+    - Mapsui's `net9.0` assemblies run in the `net10.0` app, and the app publishes with Native AOT,
+      as a 14.6 MB executable without trimming warnings, which pans and zooms the same.
+    - Found: the wheel only gives Mapsui a sign, so a trackpad's many small events zoom a step each, for phase 2;
+      the prototype isn't in `examples/dotnet.slnx`, since the copy keeps Mapsui's code style and its tiles need the network.
   - Phase 1, 1 week: the control.
     - Resizing, the scale factor, the `Info` event and widgets on tap, hovering, the Shift key, the cursor while panning,
       opening links, keyboard focus, and `Dispose`.

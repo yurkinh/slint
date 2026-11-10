@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Shows Mapsui maps: each MapsuiView shows the frames of the MapControl attached with its view-id,
+// and passes its size and input to it. Export MapsuiHost from the main file, so that MapControl.Attach finds it.
+
+export global MapsuiHost {
+    // The latest frame of each view, by view id.
+    in property <[image]> frames;
+    // Changes when a MapControl attaches, so that the views report their size, which they did before it had handlers.
+    in property <int> attached;
+    callback resized(view-id: int, width: length, height: length);
+    // kind: 0 down, 1 up, 2 move, 3 leave; touch: a finger, not a mouse
+    callback pointer(view-id: int, kind: int, button: int, touch: bool, x: length, y: length, shift: bool);
+    callback wheel(view-id: int, x: length, y: length, delta-y: length);
+}
+
+export component MapsuiView inherits Rectangle {
+    in property <int> view-id;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    property <int> attached: MapsuiHost.attached;
+    changed attached => {
+        MapsuiHost.resized(root.view-id, root.width, root.height);
+    }
+    init => {
+        MapsuiHost.resized(root.view-id, root.width, root.height);
+    }
+    changed width => {
+        MapsuiHost.resized(root.view-id, root.width, root.height);
+    }
+    changed height => {
+        MapsuiHost.resized(root.view-id, root.width, root.height);
+    }
+
+    Image {
+        source: MapsuiHost.frames[root.view-id];
+        width: parent.width;
+        height: parent.height;
+        // A frame has the view's size in physical pixels, which an image would otherwise ask the layout for.
+        preferred-width: 0px;
+        preferred-height: 0px;
+    }
+
+    TouchArea {
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.default;
+        pointer-event(e) => {
+            MapsuiHost.pointer(
+                root.view-id,
+                e.kind == PointerEventKind.down ? 0 : e.kind == PointerEventKind.up ? 1 : e.kind == PointerEventKind.move ? 2 : 3,
+                e.button == PointerEventButton.middle ? 1 : e.button == PointerEventButton.right ? 2 : 0,
+                e.touch-finger-id != 0,
+                self.mouse-x,
+                self.mouse-y,
+                e.modifiers.shift);
+        }
+        scroll-event(e) => {
+            MapsuiHost.wheel(root.view-id, self.mouse-x, self.mouse-y, e.delta-y);
+            EventResult.accept
+        }
+    }
+}

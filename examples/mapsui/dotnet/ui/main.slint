@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { MapsuiView } from "mapsui.slint";
+export { MapsuiHost } from "mapsui.slint";
+
+export component MainWindow inherits Window {
+    title: "Mapsui in Slint";
+    preferred-width: 900px;
+    preferred-height: 640px;
+    in property <string> status;
+    callback zoom-in();
+    callback zoom-out();
+    callback home();
+
+    VerticalBox {
+        HorizontalBox {
+            padding: 0;
+            Button { text: "Zoom in"; clicked => { root.zoom-in(); } }
+            Button { text: "Zoom out"; clicked => { root.zoom-out(); } }
+            Button { text: "Home"; clicked => { root.home(); } }
+            Text { text: root.status; vertical-alignment: center; horizontal-stretch: 1; }
+        }
+        MapsuiView { view-id: 0; }
+    }
+}
