@@ -1250,8 +1250,26 @@ Next:
       that's Mapsui's shared code, the same on its other platforms.
     - In the browser, `OpenInBrowser` opens a link with `window.open` through a `JSImport`, since there's no `Process.Start`;
       a click on the attribution of OpenStreetMap opens its copyright page in a new tab.
-  - Phase 4, 4 days: `Mapsui.Samples.Slint`, a sample browser with a Slint list of `Mapsui.Samples.Common`, which runs unchanged,
-    like `Mapsui.Samples.Eto`; and the `MapsuiView` builder of `Slint.Markup`, with a page of the gallery of item 26 that shows a map.
+  - Phase 4, done on 2026-11-10: Mapsui's samples, and the `MapsuiView` builder of `Slint.Markup`.
+    - `examples/mapsui/samples`, `Mapsui.Samples.Slint`, lists the categories and samples of `Mapsui.Samples.Common`, like `Mapsui.Samples.Eto`,
+      and shows the selected one; `--sample <category>/<name>` starts with one, and `--check` shows each in turn, draws it, and quits.
+    - The samples aren't a package, so it builds them from a checkout of Mapsui at the tag 5.2.0-beta.1, next to the Slint repository or at `MapsuiSource`.
+      It compiles the control's files itself, against that Mapsui, since its packages would be a second Mapsui;
+      NuGet's restore ignores `AdditionalProperties`, so the control's project can't switch to the checkout for it.
+    - With the .NET 10 SDK, Mapsui's build needs two changes, which the sample passes without editing the checkout:
+      `EnforceCodeStyleInBuild=false`, since the newer analyzers disagree with its formatting,
+      and `MapsuiSamples.targets`, through `CustomAfterMicrosoftCommonTargets`,
+      since the SDK takes `shp` of `cities.shp.sidx` for the culture Shipibo-Conibo and moves those files into a satellite assembly.
+    - `--check` on macOS: 147 of 153 samples show and draw without an error.
+      The other 6 aren't the control's: `LoggingWidget` logs an error on purpose, four WMS servers are gone or answer 404,
+      one WMS sample needs a server on `localhost:8080`, and Zurich's WMTS server answers 500.
+      SVG symbols, images, labels, shapefiles with themes, and Mapsui's widgets look as in Mapsui's other sample apps.
+    - With `<SlintFile Include="../Mapsui.UI.Slint/mapsui.slint" Link="ui/mapsui.slint" Markup="true" />`, a project gets a `MapsuiView` builder.
+      A builder now lists the globals that its file exports, and a page with it exports them too,
+      so `MapControl.Attach(component.Page.Instance)` finds `MapsuiHost`; a test in `MarkupTests` covers it.
+    - `examples/mapsui/dotnet-markup` shows a map below buttons for four cities, in UI written in C#.
+      The map stays with the page's first instance, so a rebuild of the page, such as by hot reload of its structure, needs it attached again.
+    - Not in the controls gallery of item 26, as the plan had it, since the gallery would then need Mapsui and SkiaSharp.
   - Phase 5, 3 days: the package, built and tested in CI, and, after the decision, the pull request to Mapsui or the first release of `Mapsui.Slint`,
     depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
   - Later: DrawnUI's OpenGL path, for less copying.

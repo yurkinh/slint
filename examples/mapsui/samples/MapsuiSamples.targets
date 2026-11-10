@@ -1,0 +1,14 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+  Imported into the build of Mapsui's projects through CustomAfterMicrosoftCommonTargets.
+  The .NET 10 SDK takes "shp" of files such as cities.shp.sidx for the culture Shipibo-Conibo,
+  and moves them into a satellite assembly, where Mapsui's samples don't find them.
+-->
+<Project>
+  <Target Name="_SlintMapsuiResourcesWithoutCulture" BeforeTargets="SplitResourcesByCulture">
+    <ItemGroup>
+      <EmbeddedResource Update="@(EmbeddedResource)" WithCulture="false" Culture="" />
+    </ItemGroup>
+  </Target>
+</Project>

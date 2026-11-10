@@ -1,0 +1,44 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+  Mapsui's sample collection, Mapsui.Samples.Common, in a Slint window, like Mapsui.Samples.Eto.
+  The samples aren't a package, so this builds them, and Mapsui with them, from a checkout of Mapsui:
+  clone the tag 5.2.0-beta.1 of https://github.com/Mapsui/Mapsui.git next to the Slint repository, or set MapsuiSource.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Mapsui.Samples.Slint</RootNamespace>
+    <MapsuiSource Condition="'$(MapsuiSource)' == ''">$(MSBuildThisFileDirectory)../../../../Mapsui</MapsuiSource>
+    <MapsuiSource>$([System.IO.Path]::GetFullPath('$(MapsuiSource)'))</MapsuiSource>
+    <!-- For the control's sources, as in Mapsui.UI.Slint.csproj. -->
+    <DefineConstants>$(DefineConstants);__SLINT__</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CS1591;IDE0005;IDE0055</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <SlintFile Include="ui/main.slint" />
+    <SlintLibraryPath Include="mapsui" Path="../Mapsui.UI.Slint/mapsui.slint" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Mapsui's projects enforce their code style with the analyzers of the .NET 9 SDK that they pin, which the .NET 10 SDK's disagree with. -->
+    <ProjectReference Include="$(MapsuiSource)/Samples/Mapsui.Samples.Common/Mapsui.Samples.Common.csproj"
+                      AdditionalProperties="EnforceCodeStyleInBuild=false;CustomAfterMicrosoftCommonTargets=$(MSBuildThisFileDirectory)MapsuiSamples.targets" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The control, built here against the samples' Mapsui instead of with its packages, which would be a second Mapsui. -->
+    <Compile Include="../Mapsui.UI.Slint/*.cs" />
+  </ItemGroup>
+  <Target Name="_CheckMapsuiSource" BeforeTargets="ResolveProjectReferences">
+    <Error Condition="!Exists('$(MapsuiSource)/Samples/Mapsui.Samples.Common')"
+           Text="Mapsui isn't at $(MapsuiSource): clone it with git clone --branch 5.2.0-beta.1 https://github.com/Mapsui/Mapsui.git, or set MapsuiSource to its directory." />
+  </Target>
+  <!-- Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
+  </ItemGroup>
+  <Import Project="../../../api/dotnet/Slint/build/Slint.targets" />
+</Project>

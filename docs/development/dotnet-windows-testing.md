@@ -84,6 +84,14 @@ Run them in this order; each one builds on the one before.
 
    The tests of the control pass without a screen; the window shows Kyiv, and dragging with the mouse pans the map and the wheel zooms it.
    On a touchscreen or a precision touchpad, two fingers zoom and rotate the map, and a tap with two fingers raises no `Info`.
+   Mapsui's samples need a checkout of Mapsui next to the repository, and `--check` shows each of them and prints the ones that failed,
+   6 on macOS, for servers that are gone:
+
+   ```powershell
+   git clone --branch 5.2.0-beta.1 https://github.com/Mapsui/Mapsui.git ..\Mapsui
+   dotnet run --project examples\mapsui\samples -- --check
+   dotnet run --project examples\mapsui\dotnet-markup
+   ```
    The scripted run prints the scale, the frame size, whether panning and the wheel work, and the draw and copy times;
    record them with the scale of the display, and again with `$env:SLINT_SCALE_FACTOR = "2"`.
 
