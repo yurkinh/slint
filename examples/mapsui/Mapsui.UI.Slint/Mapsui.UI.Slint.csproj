@@ -3,7 +3,13 @@
 <!-- A Mapsui map control for Slint, which an app shows with MapsuiView of mapsui.slint. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <!--
+      Slint.csproj has an Android build only with SlintAndroid=true, like this one.
+      An Android app needs it: with only the net10.0 build, the app's build finds no Java types in any assembly, not even its activity.
+    -->
+    <TargetFrameworks Condition="'$(SlintAndroid)' == 'true'">net10.0;net10.0-android</TargetFrameworks>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">26</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Mapsui.UI.Slint</RootNamespace>

@@ -83,6 +83,7 @@ Run them in this order; each one builds on the one before.
    ```
 
    The tests of the control pass without a screen; the window shows Kyiv, and dragging with the mouse pans the map and the wheel zooms it.
+   On a touchscreen or a precision touchpad, two fingers zoom and rotate the map, and a tap with two fingers raises no `Info`.
    The scripted run prints the scale, the frame size, whether panning and the wheel work, and the draw and copy times;
    record them with the scale of the display, and again with `$env:SLINT_SCALE_FACTOR = "2"`.
 

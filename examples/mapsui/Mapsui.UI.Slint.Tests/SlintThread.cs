@@ -34,7 +34,8 @@ internal static partial class SlintThread
             {
                 action();
             }
-        }, 16 * 1024 * 1024) { IsBackground = true }.Start();
+        }, 16 * 1024 * 1024)
+        { IsBackground = true }.Start();
     }
 
     public static void Run(Action body)

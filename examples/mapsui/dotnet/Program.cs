@@ -1,11 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// A Mapsui map in a Slint window, next to Slint widgets: OpenStreetMap tiles, panning with the mouse, and zooming with the wheel.
+// A Mapsui map in a Slint window, next to Slint widgets: OpenStreetMap tiles, panning with the mouse,
+// zooming with the wheel, and pinching and rotating with two fingers or the trackpad.
 
-using Mapsui;
-using Mapsui.Projections;
-using Mapsui.Tiling;
 using Mapsui.UI.Slint;
 using MapsuiSample;
 
@@ -15,17 +13,7 @@ internal static class Program
     private static void Main()
     {
         using var window = MainWindow.Create();
-        using var map = MapControl.Attach(window.Instance);
-        map.Map.Layers.Add(OpenStreetMap.CreateTileLayer());
-
-        // Kyiv, at a zoom where the city fills the view, once the view has a size.
-        var (x, y) = SphericalMercator.FromLonLat(30.5234, 50.4501);
-        var home = new MPoint(x, y);
-        map.Map.ViewportInitialized += (_, _) => map.Map.Navigator.CenterOnAndZoomTo(home, map.Map.Navigator.Resolutions[12]);
-
-        window.OnZoomIn(() => map.Map.Navigator.ZoomIn());
-        window.OnZoomOut(() => map.Map.Navigator.ZoomOut());
-        window.OnHome(() => map.Map.Navigator.CenterOnAndZoomTo(home, map.Map.Navigator.Resolutions[12]));
+        using var map = SampleMap.Attach(window);
 
         if (Environment.GetEnvironmentVariable("MAPSUI_BENCH") != null)
         {
@@ -33,10 +21,7 @@ internal static class Program
             return;
         }
 
-        // Shows the time of the last frame, drawing it and copying it into an image.
-        using var timer = new Slint.Timer();
-        timer.Start(Slint.TimerMode.Repeated, TimeSpan.FromMilliseconds(500), () =>
-            window.Status = $"Frame: draw {map.LastFrame.Draw.TotalMilliseconds:F1} ms, copy {map.LastFrame.Copy.TotalMilliseconds:F1} ms");
+        using var timer = SampleMap.ShowFrameTimes(window, map);
 
         window.Run();
     }
@@ -49,7 +34,7 @@ internal static class Program
     {
         window.Show();
         var instance = window.Instance;
-        void Pointer(int kind, double x, double y) => instance.InvokeGlobal("MapsuiHost", "pointer", 0, kind, 0, false, x, y, false);
+        void Pointer(int kind, double x, double y) => instance.InvokeGlobal("MapsuiHost", "pointer", 0, kind, 0, 0, x, y, false);
         // Lets the tiles load first.
         Slint.Timer.SingleShot(TimeSpan.FromSeconds(5), () =>
         {

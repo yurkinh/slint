@@ -10,9 +10,12 @@ export global MapsuiHost {
     // Changes when a MapControl attaches, so that the views report their size, which they did before it had handlers.
     in property <int> attached;
     callback resized(view-id: int, width: length, height: length);
-    // kind: 0 down, 1 up, 2 move, 3 leave; touch: a finger, not a mouse
-    callback pointer(view-id: int, kind: int, button: int, touch: bool, x: length, y: length, shift: bool);
+    // kind: 0 down, 1 up, 2 move, 3 cancel; finger: 0 for the mouse
+    callback pointer(view-id: int, kind: int, button: int, finger: int, x: length, y: length, shift: bool);
     callback wheel(view-id: int, x: length, y: length, delta-y: length);
+    // A pinch or rotation of two fingers or the trackpad. phase: 0 started, 1 updated, 2 ended, 3 cancelled;
+    // scale and rotation are since the gesture started, and x and y are its center.
+    callback pinch(view-id: int, phase: int, scale: float, rotation: angle, x: length, y: length);
 }
 
 export component MapsuiView inherits Rectangle {
@@ -43,21 +46,38 @@ export component MapsuiView inherits Rectangle {
         preferred-height: 0px;
     }
 
-    TouchArea {
-        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.default;
-        pointer-event(e) => {
-            MapsuiHost.pointer(
-                root.view-id,
-                e.kind == PointerEventKind.down ? 0 : e.kind == PointerEventKind.up ? 1 : e.kind == PointerEventKind.move ? 2 : 3,
-                e.button == PointerEventButton.middle ? 1 : e.button == PointerEventButton.right ? 2 : 0,
-                e.touch-finger-id != 0,
-                self.mouse-x,
-                self.mouse-y,
-                e.modifiers.shift);
+    ScaleRotateGestureHandler {
+        width: parent.width;
+        height: parent.height;
+        started => {
+            MapsuiHost.pinch(root.view-id, 0, self.scale, self.rotation, self.center.x, self.center.y);
         }
-        scroll-event(e) => {
-            MapsuiHost.wheel(root.view-id, self.mouse-x, self.mouse-y, e.delta-y);
-            EventResult.accept
+        updated => {
+            MapsuiHost.pinch(root.view-id, 1, self.scale, self.rotation, self.center.x, self.center.y);
+        }
+        ended => {
+            MapsuiHost.pinch(root.view-id, 2, self.scale, self.rotation, self.center.x, self.center.y);
+        }
+        cancelled => {
+            MapsuiHost.pinch(root.view-id, 3, self.scale, self.rotation, self.center.x, self.center.y);
+        }
+
+        TouchArea {
+            mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.default;
+            pointer-event(e) => {
+                MapsuiHost.pointer(
+                    root.view-id,
+                    e.kind == PointerEventKind.down ? 0 : e.kind == PointerEventKind.up ? 1 : e.kind == PointerEventKind.move ? 2 : 3,
+                    e.button == PointerEventButton.middle ? 1 : e.button == PointerEventButton.right ? 2 : 0,
+                    e.touch-finger-id,
+                    self.mouse-x,
+                    self.mouse-y,
+                    e.modifiers.shift);
+            }
+            scroll-event(e) => {
+                MapsuiHost.wheel(root.view-id, self.mouse-x, self.mouse-y, e.delta-y);
+                EventResult.accept
+            }
         }
     }
 }

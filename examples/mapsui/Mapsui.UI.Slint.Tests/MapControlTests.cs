@@ -12,7 +12,7 @@ namespace Mapsui.UI.Slint.Tests;
 public sealed class MapControlTests
 {
     private static void Pointer(TestWindow window, int view, int kind, double x, double y) =>
-        window.Instance.InvokeGlobal("MapsuiHost", "pointer", view, kind, 0, false, x, y, false);
+        window.Instance.InvokeGlobal("MapsuiHost", "pointer", view, kind, 0, 0, x, y, false);
 
     private static void Tap(TestWindow window, int view, double x, double y)
     {
@@ -95,6 +95,81 @@ public sealed class MapControlTests
         Pointer(window, 0, 1, 150, 150);
         // Dragging to the right shows what's west of the center.
         Assert.IsLessThan(0, map.Map.Navigator.Viewport.CenterX);
+        window.Hide();
+    });
+
+    [TestMethod]
+    public void ZoomsContinuouslyWithTheTrackpad() => SlintThread.Run(() =>
+    {
+        using var window = TestWindow.Create();
+        window.Show();
+        using var map = MapControl.Attach(window.Instance, 0);
+        SlintThread.Pump();
+        map.Map.Navigator.CenterOnAndZoomTo(new MPoint(0, 0), 1000);
+
+        // Pixels, unlike the 60 of a line of the wheel, zoom by their amount and without the animation.
+        window.Instance.InvokeGlobal("MapsuiHost", "wheel", 0, 100, 150, 100);
+        Assert.AreEqual(1000 / Math.Sqrt(2), map.Map.Navigator.Viewport.Resolution, 0.001);
+        window.Instance.InvokeGlobal("MapsuiHost", "wheel", 0, 100, 150, -100);
+        Assert.AreEqual(1000, map.Map.Navigator.Viewport.Resolution, 0.001);
+        window.Hide();
+    });
+
+    [TestMethod]
+    public void ZoomsRotatesAndPansWithAPinch() => SlintThread.Run(() =>
+    {
+        using var window = TestWindow.Create();
+        window.Show();
+        using var map = MapControl.Attach(window.Instance, 0);
+        SlintThread.Pump();
+        map.Map.Navigator.CenterOnAndZoomTo(new MPoint(0, 0), 1000);
+        void Pinch(int phase, double scale, double rotation, double x, double y) =>
+            window.Instance.InvokeGlobal("MapsuiHost", "pinch", 0, phase, scale, rotation, x, y);
+
+        // The first finger starts a drag, which the pinch takes over.
+        Pointer(window, 0, 0, 100, 150);
+        Pinch(0, 1, 0, 100, 150);
+        Pinch(1, 2, 45, 100, 150);
+        Assert.AreEqual(500, map.Map.Navigator.Viewport.Resolution, 0.001);
+        Assert.AreEqual(45, map.Map.Navigator.Viewport.Rotation, 0.001);
+        // The world under the center of the pinch stays there.
+        Assert.AreEqual(0, map.Map.Navigator.Viewport.CenterX, 0.001);
+
+        Pinch(1, 2, 45, 120, 150);
+        Assert.AreEqual(-20 * 500, map.Map.Navigator.Viewport.CenterX * Math.Sqrt(2), 0.01);
+        Pinch(2, 1, 0, 120, 150);
+        Pointer(window, 0, 2, 200, 150);
+        var center = map.Map.Navigator.Viewport.CenterX;
+        Pinch(1, 3, 0, 100, 150);
+        Assert.AreEqual(center, map.Map.Navigator.Viewport.CenterX, "Moves after the pinch ended change nothing");
+        Assert.AreEqual(500, map.Map.Navigator.Viewport.Resolution, 0.001);
+        window.Hide();
+    });
+
+    [TestMethod]
+    public void TakesNoTapFromTheFingersOfAPinch() => SlintThread.Run(() =>
+    {
+        using var window = TestWindow.Create();
+        window.Show();
+        using var map = MapControl.Attach(window.Instance, 0);
+        SlintThread.Pump();
+        var taps = 0;
+        map.Info += (_, _) => taps++;
+        void Finger(int kind, int finger) => window.Instance.InvokeGlobal("MapsuiHost", "pointer", 0, kind, 0, finger, 100, 150, false);
+
+        // The events of Slint's touch handling: the release of the first finger, with the second one's id,
+        // the pinch, and the remaining finger, pressed again when the other lifts.
+        Finger(0, 1);
+        Finger(1, 2);
+        window.Instance.InvokeGlobal("MapsuiHost", "pinch", 0, 0, 1, 0, 100, 150);
+        window.Instance.InvokeGlobal("MapsuiHost", "pinch", 0, 2, 2, 0, 100, 150);
+        Finger(0, 1);
+        Finger(1, 1);
+        Assert.AreEqual(0, taps);
+
+        Finger(0, 1);
+        Finger(1, 1);
+        Assert.AreEqual(1, taps);
         window.Hide();
     });
 

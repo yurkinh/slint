@@ -17,6 +17,10 @@ namespace Mapsui.UI.Slint;
 /// </summary>
 public partial class MapControl : IMapControl
 {
+    // A wheel reports lines, which Slint's winit backend gives as 60 logical pixels each; a trackpad reports pixels.
+    private const double WheelLine = 60;
+    private const double TrackpadPixelsPerZoomLevel = 200;
+
     private readonly ComponentInstance _component;
     private readonly MapsuiViews _views;
     private readonly int _viewId;
@@ -27,9 +31,15 @@ public partial class MapControl : IMapControl
     private double _width;
     private double _height;
     private bool _pressed;
+    private int _pressedFinger;
+    private bool _twoFingers;
     private bool _shiftPressed;
     private bool _disposed;
     private int _drawPending;
+    private ScreenPosition? _pinchCenter;
+    private double _pinchScale;
+    private double _pinchRotation;
+    private double _pinchTotalRotation;
 
     private MapControl(ComponentInstance component, int viewId)
     {
@@ -87,19 +97,62 @@ public partial class MapControl : IMapControl
 
     internal void OnWheel(double delta, ScreenPosition position)
     {
-        if (delta != 0)
+        if (delta == 0)
         {
-            Map.Navigator.MouseWheelZoom(delta > 0 ? 1 : -1, position);
+            return;
+        }
+        if (Math.IEEERemainder(delta, WheelLine) == 0)
+        {
+            Map.Navigator.MouseWheelZoom(Math.Sign(delta), position);
+        }
+        else
+        {
+            Map.Navigator.MouseWheelZoomContinuous(Math.Pow(2, -delta / TrackpadPixelsPerZoomLevel), position);
         }
     }
 
-    internal void OnPointer(int kind, ScreenPosition position, bool shift)
+    internal void OnPinch(int phase, double scale, double rotation, ScreenPosition center)
+    {
+        switch (phase)
+        {
+            case 0:
+                // A drag of the mouse with a trackpad pinch.
+                _pressed = false;
+                (_pinchCenter, _pinchScale, _pinchRotation, _pinchTotalRotation) = (center, scale, rotation, 0);
+                break;
+            case 1 when _pinchCenter is { } previous:
+                var rotationChange = rotation - _pinchRotation;
+                _pinchTotalRotation += rotationChange;
+                Map.Navigator.Manipulate(new Manipulation(center, previous, scale / _pinchScale, rotationChange, _pinchTotalRotation));
+                (_pinchCenter, _pinchScale, _pinchRotation) = (center, scale, rotation);
+                break;
+            default:
+                _pinchCenter = null;
+                break;
+        }
+    }
+
+    internal void OnPointer(int kind, int finger, ScreenPosition position, bool shift)
     {
         _shiftPressed = shift;
+        // Slint releases the first finger when a second one touches, with the second finger's id.
+        // Until the last finger lifts, the fingers are a pinch, not a drag or a tap.
+        if (kind == 1 && finger != _pressedFinger)
+        {
+            _pressed = false;
+            _twoFingers = true;
+            return;
+        }
+        if (_twoFingers)
+        {
+            _twoFingers = kind != 1;
+            return;
+        }
         switch (kind)
         {
             case 0:
                 _pressed = true;
+                _pressedFinger = finger;
                 _manipulationTracker.Restart([position]);
                 OnPointerPressed([position]);
                 break;
@@ -196,9 +249,11 @@ internal sealed class MapsuiViews
         component.SetGlobalProperty(Global, "frames", _frames);
         component.SetGlobalCallback(Global, "resized", args => Find(args)?.Resize(Number(args[1]), Number(args[2])));
         component.SetGlobalCallback(Global, "pointer", args =>
-            Find(args)?.OnPointer(Convert.ToInt32(args[1]), new ScreenPosition(Number(args[4]), Number(args[5])), (bool)args[6]!));
+            Find(args)?.OnPointer(Convert.ToInt32(args[1]), Convert.ToInt32(args[3]), new ScreenPosition(Number(args[4]), Number(args[5])), (bool)args[6]!));
         component.SetGlobalCallback(Global, "wheel", args =>
             Find(args)?.OnWheel(Number(args[3]), new ScreenPosition(Number(args[1]), Number(args[2]))));
+        component.SetGlobalCallback(Global, "pinch", args =>
+            Find(args)?.OnPinch(Convert.ToInt32(args[1]), Number(args[2]), Number(args[3]), new ScreenPosition(Number(args[4]), Number(args[5]))));
     }
 
     public static MapsuiViews Of(ComponentInstance component) => All.GetValue(component, c => new MapsuiViews(c));

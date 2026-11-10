@@ -385,10 +385,11 @@ at the paths that the generated code loads, and their runtime paths stay relativ
 The `net10.0-android` build of `Slint.csproj` needs the .NET Android workload, so it's only built with `SlintAndroid=true`,
 in `obj/android` and `bin/android`.
 Build the native library with the NDK, for `aarch64-linux-android` on devices and Apple Silicon emulators,
-and `x86_64-linux-android` for other emulators:
+and `x86_64-linux-android` for other emulators.
+Use NDK 30, as CI does: with NDK 28, the library fails to load, missing `std::__hash_memory`.
 
 ```sh
-NDK=$HOME/Library/Android/sdk/ndk/<version>
+NDK=$HOME/Library/Android/sdk/ndk/30.0.16248370
 BIN=$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin   # linux-x86_64 on Linux
 export ANDROID_NDK_ROOT=$NDK
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$BIN/aarch64-linux-android26-clang
@@ -1204,8 +1205,28 @@ Next:
       a new scale factor, and `Dispose`; all 6 pass.
     - Limits: Slint.NET reports no change of the scale factor, so the frame after one, such as during the next pan, has the new size;
       Mapsui needs no keyboard, so the view has no focus.
-  - Phase 2, 1 week: touch, pinch, and rotation through `ScaleRotateGestureHandler`, the trackpad on macOS,
-    and Android and iOS, tested on the Pixel_9 emulator and the iPhone 13.
+  - Phase 2, done on 2026-11-10: pinch, rotation, the trackpad, and the samples `examples/mapsui/dotnet-android` and `dotnet-ios`,
+    which share `SampleMap.cs` and `ui/main.slint` with the desktop sample.
+    - A `ScaleRotateGestureHandler` around the view's `TouchArea` passes the gesture to `MapsuiHost.pinch`,
+      and the control gives Mapsui's navigator the change since the last update, as `ManipulationTracker` would.
+    - Slint releases the first finger, with the second finger's id, when a second finger touches, and presses the remaining one again when one lifts;
+      the view passes `touch-finger-id`, and the control ignores the pointer from such a release until the last finger lifts, so a pinch is no tap.
+    - The wheel zooms a step for each line, 60 logical pixels in Slint's winit backend;
+      other amounts come from a trackpad, and zoom continuously, a level per 200 pixels.
+    - Tested on the Pixel_9 emulator, with two-finger gestures sent through `adb emu event send`:
+      a pinch out to 5x and 37° zooms and rotates around its center, a pinch in zooms out, and one finger pans after it.
+      On the iPhone 13, a Release build with Mapsui's assemblies trimmed starts and shows the map, and in the iPhone simulator too.
+      The macOS trackpad and real fingers need a person; the tests cover the control's side, 9 now, with the trackpad and a pinch.
+    - Found and fixed:
+      - On Android, a `net10.0` library that references `Slint.csproj` left the app without any Java types, its activity included,
+        so `Mapsui.UI.Slint` also targets `net10.0-android` with `SlintAndroid=true`, and the copy's `__ANDROID__` branch excludes `__SLINT__`.
+        A package of Slint.NET doesn't have this problem, since NuGet picks the Android assembly for the whole app.
+      - OpenStreetMap blocks Mapsui's default user agent on Android, which comes from the process name, so the sample sets its own.
+      - The view keeps out of `safe-area-insets`, so the buttons don't sit under Android's status bar.
+      - `Slint.targets` compiled a `.slint` file again only when it changed itself, not when a file it imports changed, such as `mapsui.slint`;
+        the fix reads the compiler's dependency file, and is on `dotnet_bindings`.
+      - A library of `slint-dotnet` built with NDK 28 fails to load; [Android](#android) now names NDK 30.
+    - Mapsui's dependencies BruTile and NetTopologySuite warn about trimming in the iOS build, which is theirs to fix.
   - Phase 3, 1 week: the browser, where SkiaSharp's WebAssembly library links into the same app as Slint's,
     which item 24 hasn't tried, and where tile servers need CORS; tested in Chrome, like item 24.
   - Phase 4, 4 days: `Mapsui.Samples.Slint`, a sample browser with a Slint list of `Mapsui.Samples.Common`, which runs unchanged,
