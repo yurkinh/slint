@@ -9,8 +9,16 @@ using Digits;
 using Slint.Markup;
 using Color = Slint.Color;
 
-using var game = new DigitsGame();
-game.Run();
+internal static class Program
+{
+    // Windows needs a single-threaded apartment for the window.
+    [STAThread]
+    private static void Main()
+    {
+        using var game = new DigitsGame();
+        game.Run();
+    }
+}
 
 internal sealed class DigitsGame : Component<GameState>
 {

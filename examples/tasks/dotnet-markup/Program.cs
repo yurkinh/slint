@@ -7,10 +7,18 @@
 using Slint.Markup;
 using Tasks;
 
-// The colors of the sample are for a light theme.
-Page.Style = "fluent-light";
-using var app = new TaskApp();
-app.Run();
+internal static class Program
+{
+    // Windows needs a single-threaded apartment for the window.
+    [STAThread]
+    private static void Main()
+    {
+        // The colors of the sample are for a light theme.
+        Page.Style = "fluent-light";
+        using var app = new TaskApp();
+        app.Run();
+    }
+}
 
 internal sealed class TaskApp : Component
 {

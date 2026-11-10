@@ -8,9 +8,17 @@
 using ControlsGallery;
 using Slint.Markup;
 
-Page.Style = "fluent-light";
-using var gallery = new Gallery();
-gallery.Run();
+internal static class Program
+{
+    // Windows needs a single-threaded apartment for the window.
+    [STAThread]
+    private static void Main()
+    {
+        Page.Style = "fluent-light";
+        using var gallery = new Gallery();
+        gallery.Run();
+    }
+}
 
 internal sealed class Gallery : Component
 {

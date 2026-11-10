@@ -10,10 +10,18 @@ using Mapsui.UI.Slint;
 using MapsuiMarkup;
 using Slint.Markup;
 
-using var app = new MapApp();
-using var map = MapControl.Attach(app.Page.Instance);
-app.Connect(map);
-app.Run();
+internal static class Program
+{
+    // Windows needs a single-threaded apartment for the window.
+    [STAThread]
+    private static void Main()
+    {
+        using var app = new MapApp();
+        using var map = MapControl.Attach(app.Page.Instance);
+        app.Connect(map);
+        app.Run();
+    }
+}
 
 internal sealed record Place(string Name, double Longitude, double Latitude);
 
