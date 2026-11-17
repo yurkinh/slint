@@ -76,11 +76,13 @@ Everything else, which the fork builds, tests, and publishes as `yurkinh.slint.n
 - `dotnet/1a-pinch-scale`, `dotnet/1b-tray-testing`, `dotnet/1c-compiled-units`: the enablers, each from `master`.
 - `dotnet/core`: `master` plus the binding of step 3, for the five platforms, cut from `dotnet_bindings`.
   It's the source of 3a to 3d, and keeps the core small in the fork whatever upstream decides.
-- `dotnet`: the fork's product and default branch, which starts as a copy of `dotnet/core`.
-  A pull request in the fork from `dotnet_dev` into `dotnet` then shows exactly what the fork adds over the core:
+- `dotnet/main`: the fork's product and default branch, which starts as a copy of `dotnet/core`.
+  Git can't have a branch `dotnet` next to branches named `dotnet/…`, so it's `dotnet/main`.
+  A pull request in the fork from `dotnet-fork`, which is `dotnet_dev` with `dotnet/core` merged as `ours`, into `dotnet/main`
+  then shows exactly what the fork adds over the core:
   the browser, hot reload, MVVM, `Slint.Markup`, Mapsui, the samples, the templates, and publishing.
-  Afterwards `dotnet` merges `dotnet/core`, which merges `master`.
-- `dotnet_bindings` and `dotnet_dev` retire once their content is in `dotnet/core` and `dotnet`;
+  Afterwards `dotnet/main` merges `dotnet/core`, which merges `master`.
+- `dotnet_bindings` and `dotnet_dev` retire once their content is in `dotnet/core` and `dotnet/main`;
   #14498 closes with links to the pull requests that replace it.
 
 ## Pipelines
@@ -100,7 +102,7 @@ Everything else, which the fork builds, tests, and publishes as `yurkinh.slint.n
 
 1. Open 1a and 1b; draft 1c, and ask about it with the question of step 2.
 2. Cut `dotnet/core` from `dotnet_bindings` by removing the fork-only parts, with its CI for the five platforms.
-3. Create `dotnet` from `dotnet/core`, add `dotnet_fork.yaml` in the pull request from `dotnet_dev`,
-   merge that pull request, and make `dotnet` the fork's default branch.
+3. Create `dotnet/main` from `dotnet/core`, add `dotnet_fork.yaml` in the pull request from `dotnet-fork`,
+   merge that pull request, and make `dotnet/main` the fork's default branch.
 4. If upstream agrees, open 3a to 3d from `dotnet/core`, each when the one before it is reviewed.
 5. Close #14498 with links to whichever pull requests replace it.
