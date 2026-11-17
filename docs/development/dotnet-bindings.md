@@ -5,6 +5,7 @@
 > **When to load this document:** Working on `api/dotnet/`, the C# code generator,
 > or `tests/driver/dotnet`.
 > For the other language bindings, see `ffi-language-bindings.md`.
+> [Splitting the .NET bindings for upstream](dotnet-upstream-split.md) has the plan for replacing #14498.
 
 ## Overview
 
