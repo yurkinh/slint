@@ -410,6 +410,7 @@ llvmpipe
 Lmaterial
 LOADADDR
 logcat
+lols
 LOWORD
 lpfn
 lpsz
@@ -453,6 +454,7 @@ multisample
 multiview
 Musterfrau
 Mustermann
+Mvvm
 mycomponentlib
 myimage
 mylibrary
@@ -823,3 +825,4 @@ Zeroable
 zeroconf
 zstd
 தோசை
+Mapsui

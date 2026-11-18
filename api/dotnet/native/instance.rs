@@ -2,29 +2,50 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::ffi::c_void;
+#[cfg(feature = "live-preview")]
+use std::{cell::RefCell, rc::Rc};
 
 use i_slint_core::properties::ChangeTracker;
+#[cfg(feature = "live-preview")]
+use i_slint_live_preview::live_component::LiveReloadingComponent;
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
 use crate::timer::ManagedAction;
 use crate::{Utf8Str, guard, guard_bool, into_raw, release};
 
-/// The `ComponentInstance` of .NET.
-pub struct DotnetInstance(pub ComponentInstance);
+/// The `ComponentInstance` of .NET: a component, or one that reloads its `.slint` file when it changes.
+pub enum DotnetInstance {
+    Static(ComponentInstance),
+    #[cfg(feature = "live-preview")]
+    Live(Rc<RefCell<LiveReloadingComponent>>),
+}
 
 impl DotnetInstance {
-    /// Calls `f` with the component.
+    /// Calls `f` with the component; for a live component, the one from the latest reload.
     pub(crate) fn with<R>(&self, f: impl FnOnce(&ComponentInstance) -> R) -> R {
-        f(&self.0)
+        match self {
+            Self::Static(instance) => f(instance),
+            #[cfg(feature = "live-preview")]
+            Self::Live(live) => f(live.borrow().instance()),
+        }
     }
+
+    // A live component remembers what it sets, to set it again after a reload.
 
     fn set_property(&self, global: Option<&str>, name: &str, value: &Value) -> Result<(), String> {
         let value = value.clone();
-        match global {
-            Some(global) => self.0.set_global_property(global, name, value),
-            None => self.0.set_property(name, value),
-        }
-        .map_err(|e| e.to_string())
+        let result = match self {
+            Self::Static(instance) => match global {
+                Some(global) => instance.set_global_property(global, name, value),
+                None => instance.set_property(name, value),
+            },
+            #[cfg(feature = "live-preview")]
+            Self::Live(live) => match global {
+                Some(global) => live.borrow().try_set_global_property(global, name, value),
+                None => live.borrow().try_set_property(name, value),
+            },
+        };
+        result.map_err(|e| e.to_string())
     }
 
     fn set_callback(
@@ -33,17 +54,35 @@ impl DotnetInstance {
         name: &str,
         callback: ManagedCallback,
     ) -> Result<(), String> {
-        match global {
-            Some(global) => {
-                self.0.set_global_callback(global, name, move |args| callback.call(args))
-            }
-            None => self.0.set_callback(name, move |args| callback.call(args)),
-        }
-        .map_err(|e| e.to_string())
+        let handler: std::rc::Rc<dyn Fn(&[Value]) -> Value> =
+            std::rc::Rc::new(move |args: &[Value]| callback.call(args));
+        let result = match self {
+            Self::Static(instance) => match global {
+                Some(global) => {
+                    instance.set_global_callback(global, name, move |args| handler(args))
+                }
+                None => instance.set_callback(name, move |args| handler(args)),
+            },
+            #[cfg(feature = "live-preview")]
+            Self::Live(live) => match global {
+                Some(global) => live.borrow().try_set_global_callback(global, name, handler),
+                None => live.borrow().try_set_callback(name, handler),
+            },
+        };
+        result.map_err(|e| e.to_string())
     }
 
     fn run(&self) -> Result<(), String> {
-        self.0.run().map_err(|e| e.to_string())
+        match self {
+            Self::Static(instance) => instance.run().map_err(|e| e.to_string()),
+            // A reload replaces the instance during the event loop, so no borrow may outlive this call.
+            #[cfg(feature = "live-preview")]
+            Self::Live(_) => {
+                self.with(|instance| instance.show()).map_err(|e| e.to_string())?;
+                slint_interpreter::run_event_loop().map_err(|e| e.to_string())?;
+                self.with(|instance| instance.hide()).map_err(|e| e.to_string())
+            }
+        }
     }
 }
 
@@ -123,18 +162,25 @@ pub unsafe extern "C" fn slint_dotnet_component_instance_set_global_property(
     })
 }
 
-/// Where a tracker reads its property.
-struct TrackedInstance(slint_interpreter::Weak<ComponentInstance>);
+/// Where a tracker reads its property: the component, or the latest reload of a live one.
+enum TrackedInstance {
+    Static(slint_interpreter::Weak<ComponentInstance>),
+    #[cfg(feature = "live-preview")]
+    Live(std::rc::Weak<RefCell<LiveReloadingComponent>>),
+}
 
 impl TrackedInstance {
     fn read(&self, global: Option<&str>, name: &str) -> Value {
-        self.0
-            .upgrade()
-            .and_then(|instance| match global {
-                Some(global) => instance.get_global_property(global, name).ok(),
-                None => instance.get_property(name).ok(),
-            })
-            .unwrap_or_default()
+        let read = |instance: &ComponentInstance| match global {
+            Some(global) => instance.get_global_property(global, name).ok(),
+            None => instance.get_property(name).ok(),
+        };
+        let value = match self {
+            Self::Static(weak) => weak.upgrade().and_then(|instance| read(&instance)),
+            #[cfg(feature = "live-preview")]
+            Self::Live(weak) => weak.upgrade().and_then(|live| read(live.borrow().instance())),
+        };
+        value.unwrap_or_default()
     }
 }
 
@@ -155,7 +201,11 @@ pub unsafe extern "C" fn slint_dotnet_property_tracker_new(
         let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
         let global = (!global.is_empty()).then(|| global.to_owned());
         let name = name.to_owned();
-        let tracked = TrackedInstance(instance.0.as_weak());
+        let tracked = match instance {
+            DotnetInstance::Static(instance) => TrackedInstance::Static(instance.as_weak()),
+            #[cfg(feature = "live-preview")]
+            DotnetInstance::Live(live) => TrackedInstance::Live(Rc::downgrade(live)),
+        };
         instance
             .with(|i| match &global {
                 Some(global) => i.get_global_property(global, &name),
@@ -278,5 +328,105 @@ pub unsafe extern "C" fn slint_dotnet_component_instance_set_global_callback(
     guard_bool(|| {
         let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
         instance.set_callback(Some(global), name, callback)
+    })
+}
+
+/// Compiles the component `component` of the file `path` and creates it,
+/// then reloads it whenever the file or the files it imports change, while the event loop runs.
+/// An empty `style` selects the default one.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_live_component_new(
+    path: Utf8Str,
+    component: Utf8Str,
+    style: Utf8Str,
+    include_paths: *const Utf8Str,
+    include_count: usize,
+    library_names: *const Utf8Str,
+    library_paths: *const Utf8Str,
+    library_count: usize,
+    translation_domain: Utf8Str,
+    bundled_translations_path: Utf8Str,
+    default_translation_context: bool,
+) -> *mut DotnetInstance {
+    guard(std::ptr::null_mut(), || {
+        #[cfg(feature = "live-preview")]
+        {
+            let path = std::path::PathBuf::from(unsafe { path.as_str() }?);
+            let component = unsafe { component.as_str() }?.to_string();
+            let style = Some(unsafe { style.as_str() }?.to_string()).filter(|s| !s.is_empty());
+            let include_paths = unsafe { crate::utf8_slice(include_paths, include_count) }?
+                .into_iter()
+                .map(std::path::PathBuf::from)
+                .collect::<Vec<_>>();
+            let library_paths = unsafe { crate::utf8_slice(library_names, library_count) }?
+                .into_iter()
+                .map(String::from)
+                .zip(
+                    unsafe { crate::utf8_slice(library_paths, library_count) }?
+                        .into_iter()
+                        .map(std::path::PathBuf::from),
+                )
+                .collect();
+            let translation_domain =
+                Some(unsafe { translation_domain.as_str() }?.to_string()).filter(|s| !s.is_empty());
+            let bundled_translations_path = Some(unsafe { bundled_translations_path.as_str() }?)
+                .filter(|s| !s.is_empty())
+                .map(std::path::PathBuf::from);
+            // The compiler runs on a thread of its own, which builds it from these.
+            let compiler_factory = move || {
+                let mut compiler = slint_interpreter::Compiler::default();
+                compiler.set_include_paths(include_paths);
+                compiler.set_library_paths(library_paths);
+                if let Some(domain) = translation_domain {
+                    compiler.set_translation_domain(domain);
+                }
+                if let Some(path) = bundled_translations_path {
+                    compiler.set_bundled_translations_path(path);
+                }
+                if !default_translation_context {
+                    compiler.set_default_translation_context(
+                        slint_interpreter::DefaultTranslationContext::None,
+                    );
+                }
+                if let Some(style) = style {
+                    compiler.set_style(style);
+                }
+                compiler
+            };
+            let live = LiveReloadingComponent::new(compiler_factory, path, Some(component))
+                .map_err(|e| e.to_string())?;
+            // A reload that removed a member the application sets warns, instead of ending the application.
+            live.borrow_mut().set_error_hook(|error| eprintln!("Slint: live reload: {error}"));
+            Ok(into_raw(DotnetInstance::Live(live)))
+        }
+        #[cfg(not(feature = "live-preview"))]
+        {
+            let _ = (path, component, style, include_paths, include_count);
+            let _ = (library_names, library_paths, library_count);
+            let _ = (translation_domain, bundled_translations_path, default_translation_context);
+            Err("This native library was built without the live-preview feature".into())
+        }
+    })
+}
+
+/// Calls `call` after each reload of a live component. Takes ownership of `user_data`, also on failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_live_component_set_reload_hook(
+    instance: &DotnetInstance,
+    call: unsafe extern "C" fn(*mut c_void),
+    user_data: *mut c_void,
+    drop_user_data: unsafe extern "C" fn(*mut c_void),
+) -> bool {
+    let action = ManagedAction { call, user_data, drop_user_data };
+    guard_bool(|| match instance {
+        #[cfg(feature = "live-preview")]
+        DotnetInstance::Live(live) => {
+            live.borrow_mut().set_post_reload_hook(move |_| action.call());
+            Ok(())
+        }
+        _ => {
+            drop(action);
+            Err("The component doesn't reload".into())
+        }
     })
 }

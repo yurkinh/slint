@@ -176,11 +176,28 @@ struct Cli {
     #[arg(long = "csharp-runtime-path", name = "runtime path")]
     csharp_runtime_path: Option<String>,
 
+    /// Make the generated C# code load the input from its source path,
+    /// and reload components when it or a file it imports changes. For development only.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-live-preview")]
+    csharp_live_preview: bool,
+
     /// Also write the compiled input to this file, for the generated C# code to run
     /// from the assembly's resource `slint-unit:<runtime path>` instead of compiling the input at startup.
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-unit", name = "unit file")]
     csharp_unit: Option<std::path::PathBuf>,
+
+    /// Generate the builders of Slint.Markup, for UI written in C#: one class for each component that the input exports.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-markup")]
+    csharp_markup: bool,
+
+    /// With --csharp-markup, generate the builders of Slint.Markup itself:
+    /// the built-in elements, the components that the input imports, and the base class.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-markup-builtins", requires = "csharp_markup")]
+    csharp_markup_builtins: bool,
 }
 
 /// Reads the file to compile, the main file of a project directory given as input,
@@ -266,7 +283,11 @@ fn main() -> std::io::Result<()> {
         #[cfg(feature = "csharp")]
         reject(args.csharp_runtime_path.is_some(), "--csharp-runtime-path");
         #[cfg(feature = "csharp")]
+        reject(args.csharp_live_preview, "--csharp-live-preview");
+        #[cfg(feature = "csharp")]
         reject(args.csharp_unit.is_some(), "--csharp-unit");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_markup, "--csharp-markup");
     }
 
     #[allow(unused_mut)]
@@ -327,13 +348,18 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "csharp")]
     if args.csharp_namespace.is_some()
         || args.csharp_runtime_path.is_some()
+        || args.csharp_live_preview
         || args.csharp_unit.is_some()
+        || args.csharp_markup
     {
         match &mut format {
             generator::OutputFormat::CSharp(config) => {
                 config.namespace = args.csharp_namespace.clone();
                 config.runtime_path = args.csharp_runtime_path.clone();
+                config.live_preview = args.csharp_live_preview;
                 config.unit = args.csharp_unit.is_some();
+                config.markup = args.csharp_markup;
+                config.markup_builtins = args.csharp_markup_builtins;
             }
             _ => {
                 eprintln!("C# options were set but the output format is not C# - ignoring");
@@ -417,6 +443,11 @@ fn main() -> std::io::Result<()> {
     }
 
     compiler_config.debug_info |= format == OutputFormat::Llr;
+    // Builders are for components inside a page, so components that don't inherit Window are fine.
+    #[cfg(feature = "csharp")]
+    if args.csharp_markup {
+        compiler_config.components_to_generate = i_slint_compiler::ComponentSelection::AllExported;
+    }
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
     }

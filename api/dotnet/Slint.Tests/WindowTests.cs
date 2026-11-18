@@ -10,7 +10,7 @@ public sealed class WindowTests
         ModelTests.Create("export component App inherits Window { preferred-width: 100px; preferred-height: 50px; }");
 
     /// <summary>Hiding the last window queues a quit; run the loop once to take it.</summary>
-    private static void TakeQueuedQuit()
+    internal static void TakeQueuedQuit()
     {
         using var safety = new Timer();
         safety.Start(TimerMode.SingleShot, TimeSpan.FromSeconds(5), () => Assert.Fail("hiding the last window didn't quit"));

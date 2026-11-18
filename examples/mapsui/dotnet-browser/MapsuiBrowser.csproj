@@ -1,0 +1,31 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell: ignore yurkinh -->
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MapsuiSample</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <SlintFile Include="../dotnet/ui/main.slint" />
+    <SlintLibraryPath Include="mapsui" Path="../Mapsui.UI.Slint/mapsui.slint" />
+    <Compile Include="../dotnet/SampleMap.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Mapsui.UI.Slint/Mapsui.UI.Slint.csproj" />
+    <!-- SkiaSharp's library for WebAssembly, which links into the app next to Slint's. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.119.4" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="8.3.1.5" />
+  </ItemGroup>
+  <!--
+    Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below.
+    In this repository, run scripts/build_dotnet_browser.sh first, see docs/development/dotnet-bindings.md.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
+  </ItemGroup>
+  <Import Project="../../../api/dotnet/Slint/build/Slint.targets" />
+</Project>

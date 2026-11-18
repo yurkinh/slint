@@ -1,0 +1,24 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MapsuiMarkup</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The MapsuiView builder; a package of the control would bring it. -->
+    <SlintFile Include="../Mapsui.UI.Slint/mapsui.slint" Link="ui/mapsui.slint" Markup="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Mapsui.UI.Slint/Mapsui.UI.Slint.csproj" />
+  </ItemGroup>
+  <!-- Outside this repository, use <PackageReference Include="yurkinh.slint.net.Markup" Version="..." /> instead of the lines below. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../api/dotnet/Slint.Markup/Slint.Markup.csproj" />
+    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
+  </ItemGroup>
+  <Import Project="../../../api/dotnet/Slint/build/Slint.targets" />
+</Project>

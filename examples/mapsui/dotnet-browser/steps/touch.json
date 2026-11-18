@@ -1,0 +1,8 @@
+[
+  { "wait": "ready" },
+  { "wait": "viewport: resolution 38\\.2, rotation 0, center 3397849 6524593" },
+  { "pinch": [400, 340, 50, 100, 0, 40] },
+  { "wait": "viewport: resolution 2[01]\\.\\d, rotation 3\\d," },
+  { "pinch": [400, 340, 100, 50, 40, 40] },
+  { "wait": "viewport: resolution 3\\d\\.\\d, rotation 3\\d," }
+]

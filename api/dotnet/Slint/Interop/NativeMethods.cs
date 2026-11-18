@@ -71,6 +71,19 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial nuint slint_dotnet_struct_size(int kind);
 
+    // browser.rs
+
+    public static bool slint_dotnet_browser_start_event_loop(
+        delegate* unmanaged<nint, void> onQuit,
+        nint userData)
+        => slint_dotnet_browser_start_event_loop_raw((nint)onQuit, userData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_browser_start_event_loop")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_browser_start_event_loop_raw(
+        nint onQuit,
+        nint userData);
+
     // instance.rs: property trackers
 
     public static PropertyTrackerHandle slint_dotnet_property_tracker_new(
@@ -234,6 +247,18 @@ internal static unsafe partial class NativeMethods
     public static partial CompilationResultHandle slint_dotnet_compilation_result_from_unit(byte* data, nuint len);
 
     [LibraryImport(Library)]
+    public static partial nint slint_dotnet_compiler_build_unit(CompilerHandle compiler, Utf8Str source, Utf8Str path);
+
+    [LibraryImport(Library)]
+    public static partial byte* slint_dotnet_bytes_data(nint bytes);
+
+    [LibraryImport(Library)]
+    public static partial nuint slint_dotnet_bytes_len(nint bytes);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_bytes_free(nint bytes);
+
+    [LibraryImport(Library)]
     public static partial CompilationResultHandle slint_dotnet_compiler_build_from_source(
         CompilerHandle compiler,
         Utf8Str source,
@@ -300,6 +325,20 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial void slint_dotnet_component_instance_free(nint instance);
 
+    [LibraryImport(Library)]
+    public static partial ComponentInstanceHandle slint_dotnet_live_component_new(
+        Utf8Str path,
+        Utf8Str component,
+        Utf8Str style,
+        Utf8Str* includePaths,
+        nuint includeCount,
+        Utf8Str* libraryNames,
+        Utf8Str* libraryPaths,
+        nuint libraryCount,
+        Utf8Str translationDomain,
+        Utf8Str bundledTranslationsPath,
+        [MarshalAs(UnmanagedType.U1)] bool defaultTranslationContext);
+
     // translations.rs
 
     [LibraryImport(Library)]
@@ -319,6 +358,21 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.U1)]
     private static partial bool slint_dotnet_set_translator_raw(
         nint translate,
+        nint userData,
+        nint dropUserData);
+
+    public static bool slint_dotnet_live_component_set_reload_hook(
+        ComponentInstanceHandle instance,
+        delegate* unmanaged<nint, void> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_live_component_set_reload_hook_raw(instance, (nint)call, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_live_component_set_reload_hook")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_live_component_set_reload_hook_raw(
+        ComponentInstanceHandle instance,
+        nint call,
         nint userData,
         nint dropUserData);
 

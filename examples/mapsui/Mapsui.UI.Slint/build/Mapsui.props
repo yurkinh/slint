@@ -1,0 +1,14 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+  Lets the .slint files of an app that references the package import { MapsuiView } from "@mapsui".
+  With MapsuiSlintMarkup=true, the app also gets the MapsuiView builder of Slint.Markup.
+-->
+<Project>
+  <ItemGroup>
+    <SlintLibraryPath Include="mapsui" Path="$(MSBuildThisFileDirectory)../slint/mapsui.slint" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MapsuiSlintMarkup)' == 'true'">
+    <SlintFile Include="$(MSBuildThisFileDirectory)../slint/mapsui.slint" Link="ui/mapsui.slint" Markup="true" />
+  </ItemGroup>
+</Project>

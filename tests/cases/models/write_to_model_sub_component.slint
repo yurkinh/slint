@@ -101,4 +101,15 @@ assert.equal(instance.inner_mod.rowData(0), 10);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+instance.Mod = new ListModel<int>([1, 2, 3]);
+Testing.SendMouseClick(instance.Instance, 50, 25);
+Assert.AreEqual(2 + 8, instance.Mod[1]);
+
+Testing.SendMouseClick(instance.Instance, 50, 75);
+Assert.AreEqual(2 + 8 + 100, instance.Mod[1]);
+Assert.AreEqual(10, instance.InnerMod[0]);
+```
 */

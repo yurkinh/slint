@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! The window of a component.
+//! The window of a component. A live component keeps its window across reloads,
+//! so these work on the window of the latest instance.
 
 use std::ffi::c_void;
 

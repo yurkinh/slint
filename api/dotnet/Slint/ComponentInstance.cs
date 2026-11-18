@@ -17,19 +17,105 @@ namespace Slint;
 public sealed unsafe class ComponentInstance : IDisposable
 {
     private readonly ComponentInstanceHandle _handle;
+    private readonly LiveEvents? _live;
 
-    internal ComponentInstance(ComponentInstanceHandle handle)
+    internal ComponentInstance(ComponentInstanceHandle handle, LiveEvents? live = null)
     {
         _handle = handle;
+        _live = live;
     }
 
     internal ComponentInstanceHandle Handle => _handle;
+
+    /// <summary>
+    /// Compiles the component <paramref name="componentName"/> of the <c>.slint</c> file <paramref name="path"/> and creates it.
+    /// While the event loop runs, the component reloads whenever the file or a file it imports changes,
+    /// keeping the window and every property and callback you set.
+    /// </summary>
+    /// <remarks>
+    /// Use it during development only.
+    /// A file with errors keeps the previous version.
+    /// If a property or callback that you set no longer exists after a change, the reload prints a warning.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">On Windows, the thread isn't in a single-threaded apartment, which winit needs.</exception>
+    public static ComponentInstance CreateLive(
+        string path,
+        string componentName,
+        string? style = null,
+        IReadOnlyList<string>? includePaths = null,
+        IReadOnlyDictionary<string, string>? libraryPaths = null,
+        string? translationDomain = null,
+        string? bundledTranslationsPath = null,
+        DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
+    {
+        EventLoop.CheckApartment();
+        using var pathStr = new PinnedUtf8(Path.GetFullPath(path));
+        using var domainStr = new PinnedUtf8(translationDomain ?? "");
+        using var bundledStr = new PinnedUtf8(bundledTranslationsPath is null ? "" : Path.GetFullPath(bundledTranslationsPath));
+        using var nameStr = new PinnedUtf8(componentName);
+        using var styleStr = new PinnedUtf8(style ?? "");
+        using var includes = new PinnedUtf8Array(includePaths ?? []);
+        var libraries = (libraryPaths ?? new Dictionary<string, string>()).ToArray();
+        using var libraryNames = new PinnedUtf8Array(libraries.Select(l => l.Key));
+        using var libraryFiles = new PinnedUtf8Array(libraries.Select(l => l.Value));
+        ComponentInstanceHandle handle;
+        fixed (Utf8Str* includesPtr = includes.Strs)
+        fixed (Utf8Str* namesPtr = libraryNames.Strs)
+        fixed (Utf8Str* filesPtr = libraryFiles.Strs)
+        {
+            handle = NativeMethods.slint_dotnet_live_component_new(
+                pathStr.Str,
+                nameStr.Str,
+                styleStr.Str,
+                includesPtr,
+                (nuint)includes.Strs.Length,
+                namesPtr,
+                filesPtr,
+                (nuint)libraries.Length,
+                domainStr.Str,
+                bundledStr.Str,
+                defaultTranslationContext == DefaultTranslationContext.ComponentName);
+        }
+        if (!NativeError.Check(handle))
+        {
+            throw new SlintException($"Failed to create component {componentName} from {path}");
+        }
+        var live = new LiveEvents();
+        NativeError.Check(NativeMethods.slint_dotnet_live_component_set_reload_hook(
+            handle, &ActionTrampoline.Invoke, ActionTrampoline.Alloc(live.Raise), &ActionTrampoline.Release));
+        return new ComponentInstance(handle, live);
+    }
+
+    /// <summary>Whether the native library can create components with <see cref="CreateLive"/>.</summary>
+    public static bool LiveReloadAvailable => EventLoop.BuildFeatures.Contains("live-preview");
 
     /// <summary>The window of the component.</summary>
     /// <exception cref="InvalidOperationException">The component inherits <c>SystemTrayIcon</c>, which has no window.</exception>
     public Window Window => field ??= NativeMethods.slint_dotnet_component_instance_is_window(_handle)
         ? new Window(_handle)
         : throw new InvalidOperationException("The component inherits SystemTrayIcon, which has no window.");
+
+    /// <summary>Whether the instance comes from <see cref="CreateLive"/>.</summary>
+    public bool IsLive => _live != null;
+
+    /// <summary>Raised on the Slint thread after a component from <see cref="CreateLive"/> reloaded.</summary>
+    public event Action? Reloaded
+    {
+        add
+        {
+            if (_live != null)
+            {
+                _live.Reloaded += value;
+            }
+        }
+        remove
+        {
+            if (_live != null)
+            {
+                _live.Reloaded -= value;
+            }
+        }
+    }
 
     /// <summary>Returns the value of the public property <paramref name="name"/>.</summary>
     public object? GetProperty(string name)
@@ -187,9 +273,41 @@ public sealed unsafe class ComponentInstance : IDisposable
     /// <summary>Shows the window, runs the event loop until the last window closes, then hides the window.</summary>
     public void Run() => EventLoop.RunNative(() => NativeMethods.slint_dotnet_component_instance_run(_handle));
 
+    /// <summary>Like <see cref="Run"/>, for <see cref="EventLoop.RunAsync"/>, which the browser needs.</summary>
+    public Task RunAsync()
+    {
+        if (!OperatingSystem.IsBrowser())
+        {
+            try
+            {
+                Run();
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+        Show();
+        return EventLoop.RunAsync().ContinueWith(run =>
+        {
+            Hide();
+            return run;
+        }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();
+    }
+
     /// <summary>Releases the instance.</summary>
     public void Dispose() => _handle.Dispose();
 }
+
+/// <summary>The receiver of the reload hook; it doesn't reference the instance, so the hook doesn't keep it alive.</summary>
+internal sealed class LiveEvents
+{
+    public event Action? Reloaded;
+
+    public void Raise() => Reloaded?.Invoke();
+}
+
 internal static unsafe class CallbackTrampoline
 {
     [UnmanagedCallersOnly]

@@ -73,7 +73,7 @@ internal sealed class ConvertedModel<T>(Model<object?> rows) : Model<T>
 
 /// <summary>
 /// The name in the <c>.slint</c> file of a generated property, of the callback that an <c>On</c> method sets, or of a global,
-/// for code that matches members by name.
+/// for code that matches members by name, such as the source generator of <see cref="SlintViewModelAttribute"/>.
 /// </summary>
 [EditorBrowsable(EditorBrowsableState.Never)]
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method | AttributeTargets.Class)]
@@ -117,7 +117,7 @@ public static class GeneratedApi
     }
 
     /// <summary>
-    /// The prefix of the resources that <c>Slint.targets</c> embeds with <c>SlintEmbedFiles</c>,
+    /// The prefix of the resources that <c>Slint.targets</c> embeds with <c>SlintEmbedFiles</c> and in the browser,
     /// before the path relative to the project.
     /// </summary>
     private const string EmbeddedResourcePrefix = "slint:";
@@ -169,6 +169,21 @@ public static class GeneratedApi
         return levels;
     }
 
+    /// <summary>
+    /// Makes <paramref name="compiler"/> read the files that the assemblies embed, if any,
+    /// and returns whether there are, for the pages of <c>Slint.Markup</c>.
+    /// </summary>
+    internal static bool UseEmbeddedFiles(Compiler compiler)
+    {
+        _ = BaseDirectory;
+        if (s_embeddedFiles == null)
+        {
+            return false;
+        }
+        compiler.SetEmbeddedFiles(s_embeddedFiles);
+        return true;
+    }
+
     /// <summary>Maps an absolute path of the build machine to its embedded file.</summary>
     private static string EmbeddedPath(string path) =>
         s_projectDirectory == null || !Path.IsPathFullyQualified(path)
@@ -197,7 +212,7 @@ public static class GeneratedApi
     /// Reads the unit that <paramref name="assembly"/> embeds as <paramref name="resource"/>, compiled with <paramref name="style"/>,
     /// or returns null when there's none, when <c>SLINT_STYLE</c> names another style, or when it's from another Slint version.
     /// </summary>
-    public static unsafe CompilationResult? LoadUnit(Assembly assembly, string resource, string style)
+    public static CompilationResult? LoadUnit(Assembly assembly, string resource, string style)
     {
         var environmentStyle = Environment.GetEnvironmentVariable("SLINT_STYLE");
         if (!string.IsNullOrEmpty(environmentStyle) && environmentStyle != style)
@@ -211,17 +226,7 @@ public static class GeneratedApi
         }
         var data = new byte[stream.Length];
         stream.ReadExactly(data);
-        fixed (byte* bytes = data)
-        {
-            var result = NativeMethods.slint_dotnet_compilation_result_from_unit(bytes, (nuint)data.Length);
-            if (result.IsInvalid)
-            {
-                result.Dispose();
-                NativeError.TakeMessage();
-                return null;
-            }
-            return new CompilationResult(result);
-        }
+        return CompilationResult.FromUnit(data);
     }
 
     /// <summary>Compiles <paramref name="path"/>, throwing with the diagnostics if it has errors.</summary>
@@ -291,6 +296,35 @@ public static class GeneratedApi
     {
         using var definition = Check(result, generatedFile, name, component, globals);
         return definition.Create();
+    }
+
+    /// <summary>
+    /// Like <see cref="Create"/>, but the component reloads <paramref name="path"/> when it changes,
+    /// see <see cref="ComponentInstance.CreateLive"/>.
+    /// Without live reload in the native library, warns and creates the component once.
+    /// </summary>
+    public static ComponentInstance CreateLive(
+        CompilationResult result,
+        string path,
+        string? style,
+        string generatedFile,
+        string name,
+        ExpectedApi component,
+        IReadOnlyDictionary<string, ExpectedApi> globals,
+        IReadOnlyList<string>? includePaths = null,
+        IReadOnlyDictionary<string, string>? libraryPaths = null,
+        string? translationDomain = null,
+        string? bundledTranslationsPath = null,
+        DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
+    {
+        using var definition = Check(result, generatedFile, name, component, globals);
+        if (!ComponentInstance.LiveReloadAvailable)
+        {
+            Console.Error.WriteLine($"Slint: the native library can't reload .slint files, so {name} won't reload");
+            return definition.Create();
+        }
+        return ComponentInstance.CreateLive(
+            path, name, style, includePaths, libraryPaths, translationDomain, bundledTranslationsPath, defaultTranslationContext);
     }
 
     private static ComponentDefinition Check(

@@ -9,7 +9,7 @@ use base64::Engine;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-/// Compiles the root file at `path` like the interpreter does, for [`super::bundle::from_bytes()`],
+/// Compiles the root file at `path` like the interpreter does, for [`crate::llr::bundle::from_bytes()`],
 /// with the images it shows as `data:` URLs and the fonts it imports, so that it runs on another machine.
 /// Returns no bytes if the compilation fails.
 pub async fn compile(
@@ -50,7 +50,7 @@ pub async fn compile(
     if diagnostics.has_errors() {
         return (diagnostics, None);
     }
-    match super::bundle::to_bytes(&unit, &resources, fonts.into_iter().collect()) {
+    match crate::llr::bundle::to_bytes(&unit, &resources, fonts.into_iter().collect()) {
         Ok(bytes) => (diagnostics, Some(bytes)),
         Err(e) => {
             diagnostics

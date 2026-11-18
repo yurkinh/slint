@@ -9,19 +9,27 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MSTest" Version="4.0.2" />
+    <!-- For the tests of view model bindings with the toolkit that apps use most. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Slint/Slint.csproj" />
+    <ProjectReference Include="../Slint.Markup/Slint.Markup.csproj" />
   </ItemGroup>
   <ItemGroup>
     <SlintFile Include="ui/generated.slint" />
     <SlintFile Include="ui/shared.slint" Generate="false" />
+    <SlintFile Include="ui/live.slint" LivePreview="true" />
     <SlintFile Include="ui/import-paths.slint" />
     <SlintFile Include="ui/translated.slint" />
+    <SlintFile Include="ui/view-model.slint" />
+    <SlintFile Include="ui/form-view.slint" />
+    <SlintFile Include="ui/counter-page.slint" />
     <SlintFile Include="ui/compiled-at-startup.slint" />
+    <SlintFile Include="ui/markup-card.slint" Markup="true" />
     <SlintProject Include="ui/project" />
     <SlintLibraryPath Include="tags" Path="ui/lib/" />
   </ItemGroup>

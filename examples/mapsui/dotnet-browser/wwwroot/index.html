@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mapsui in Slint</title>
+</head>
+<body style="margin: 0">
+  <!-- A size in the style attribute makes Slint follow the page instead of the window's preferred size. -->
+  <canvas id="canvas" style="width: 100vw; height: 100vh; display: block"></canvas>
+  <script type="module">
+    import { dotnet } from "./_framework/dotnet.js";
+    // ?renderer=software picks Slint's software renderer instead of FemtoVG on WebGL.
+    const renderer = new URLSearchParams(location.search).get("renderer");
+    await (renderer ? dotnet.withEnvironmentVariable("SLINT_BACKEND", `emscripten-${renderer}`) : dotnet).run();
+  </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# The checks of what the fork adds to the .NET bindings of dotnet/core:
+# the samples, Slint.Markup's examples, the Mapsui control, the templates, and the browser.
+# ci.yaml and dotnet_test_reusable.yaml are the same as on dotnet/core, so that merging it stays simple.
+
+name: .NET Fork
+
+on:
+    push:
+        branches: [dotnet/main, dotnet_dev]
+    pull_request:
+        branches: [dotnet/main]
+    workflow_dispatch:
+
+env:
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: full
+    SLINT_BACKEND: testing
+    DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    DOTNET_NOLOGO: 1
+
+jobs:
+    samples:
+        name: ".NET Samples ${{ matrix.os }}"
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-22.04, macos-15, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-dotnet-fork-v0
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Build the native library and slint-compiler
+              run: cargo build -p slint-dotnet --features testing -p slint-compiler
+            - name: Build the examples
+              run: dotnet build examples/dotnet.slnx
+            - name: Check the formatting of the examples
+              run: dotnet format examples/dotnet.slnx --verify-no-changes
+            - name: Start the examples
+              run: dotnet run examples/dotnet-smoke-test.cs -- examples/dotnet.slnx
+            # The tests of the Mapsui control run on the testing backend, without tiles from the network.
+            - name: Test the Mapsui control, and build its samples
+              run: |
+                  dotnet run --project examples/mapsui/Mapsui.UI.Slint.Tests
+                  dotnet build examples/mapsui/dotnet
+                  dotnet build examples/mapsui/dotnet-markup
+
+    templates:
+        name: ".NET Templates"
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Check the dotnet new templates
+              shell: bash
+              run: |
+                  dotnet pack api/dotnet/Templates -o "$RUNNER_TEMP/templates" -p:Version=0.0.0-ci
+                  dotnet new install "$RUNNER_TEMP/templates/Slint.Templates.0.0.0-ci.nupkg"
+                  cd "$RUNNER_TEMP"
+                  dotnet new slint -o Desktop --no-restore
+                  dotnet new slint -o Mvvm --mvvm --no-restore
+                  dotnet new slint-android -o Android --no-restore
+                  dotnet new slint-ios -o IOSApp --no-restore
+                  dotnet new slint-xplat -o XPlat --no-restore
+                  dotnet new slint-xplat -o Two --platforms desktop --platforms android --style fluent --app-id com.example.two --no-restore
+                  if grep -rnE 'SLINT_[A-Z_]+|@Slint[A-Za-z]+@' Desktop Mvvm Android IOSApp XPlat Two; then
+                      echo "::error::A template left a placeholder in the app"
+                      exit 1
+                  fi
+                  [ ! -e Two/Two.iOS ] && ! grep -q iOS Two/Two.slnx || { echo "::error::slint-xplat created the iOS project without --platforms ios"; exit 1; }
+                  [ -e Mvvm/MainViewModel.cs ] && [ ! -e Desktop/MainViewModel.cs ] || { echo "::error::slint created MainViewModel.cs without --mvvm, or not with it"; exit 1; }
+                  grep -q 'app.Bind(new MainViewModel())' Mvvm/Program.cs && ! grep -q '#if' Mvvm/Program.cs || { echo "::error::slint --mvvm left Program.cs unbound"; exit 1; }
+                  grep -q '<SlintStyle>fluent</SlintStyle>' Two/Directory.Build.props || { echo "::error::slint-xplat ignored --style"; exit 1; }
+                  grep -q '<ApplicationId>com.example.two</ApplicationId>' Two/Two.Android/Two.Android.csproj || { echo "::error::slint-xplat ignored --app-id"; exit 1; }
+
+    # Publishes BrowserTest as a trimmed Release build and runs its steps in headless Chrome, and builds the browser examples.
+    browser:
+        name: ".NET Browser"
+        runs-on: ubuntu-22.04
+        env:
+            DOTNET_CLI_TELEMETRY_OPTOUT: 1
+            DOTNET_NOLOGO: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-emscripten
+                  components: llvm-tools
+                  key: x-dotnet-browser-v0
+            - name: Build slint-compiler, and the native library for the browser
+              run: |
+                  cargo build -p slint-compiler
+                  scripts/build_dotnet_browser.sh
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Install the .NET WebAssembly workload
+              run: dotnet workload install wasm-tools
+            - name: Publish BrowserTest
+              run: dotnet publish api/dotnet/BrowserTest -c Release
+            - name: Run the steps of BrowserTest in headless Chrome
+              working-directory: api/dotnet/BrowserTest
+              run: |
+                  export CHROME=$(command -v google-chrome)
+                  root=bin/Release/net10.0/publish/wwwroot
+                  for steps in run callback-exception text-input; do
+                      node ../../../scripts/run_in_chrome.mjs steps/$steps.json $root
+                  done
+                  node ../../../scripts/run_in_chrome.mjs steps/run.json $root '?renderer=software'
+                  MOBILE=1 SCALE=3 node ../../../scripts/run_in_chrome.mjs steps/touch.json $root
+            - name: Build the browser examples
+              run: |
+                  dotnet build examples/todo/dotnet-browser/TodoBrowser.csproj
+                  dotnet build examples/gallery/dotnet-browser/GalleryBrowser.csproj

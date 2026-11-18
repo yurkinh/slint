@@ -26,9 +26,10 @@ default = [
   "renderer-femtovg",
   "renderer-skia",
   "accessibility",
+  "live-preview",
   "desktop",
 ]
-# The interpreter's default backends and renderers, and the system tray.
+# The interpreter's features for desktops and phones, which a browser build leaves out.
 desktop = ["slint-interpreter/backend-default", "slint-interpreter/renderer-femtovg", "slint-interpreter/system-tray"]
 
 backend-qt = ["slint-interpreter/backend-qt"]
@@ -47,6 +48,8 @@ backend-testing = ["i-slint-backend-selector/backend-testing"]
 # With SLINT_BACKEND=testing, also use the test fonts and report Windows as the OS, like Slint's other test drivers.
 testing = ["backend-testing", "dep:i-slint-backend-testing"]
 system-testing = ["i-slint-backend-selector/system-testing"]
+# Reloads .slint files that change on disk, for the code that `slint-compiler --csharp-live-preview` generates.
+live-preview = ["dep:i-slint-live-preview"]
 mcp = ["i-slint-backend-selector/mcp"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
@@ -60,15 +63,20 @@ accessibility = ["slint-interpreter/accessibility"]
 [dependencies]
 base64 = "0.23"
 i-slint-backend-selector = { workspace = true }
-i-slint-compiler = { workspace = true, features = ["csharp"] }
+# csharp: compiling a page of Slint.Markup to a unit at run time, like slint-compiler --csharp-unit.
+i-slint-compiler = { workspace = true, features = ["serde", "csharp"] }
 i-slint-core = { workspace = true, features = ["tr"] }
 slint-interpreter = { workspace = true, default-features = false, features = ["renderer-software", "compat-1-18", "display-diagnostics", "bundle-translations", "internal", "internal-mcu-interpreter"] }
 spin_on = { workspace = true }
 url = "2.2.1"
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
+i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }
+
+[target.'cfg(target_os = "emscripten")'.dependencies]
+i-slint-backend-emscripten = { workspace = true, features = ["renderer-femtovg", "renderer-software"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 i-slint-backend-linuxkms = { workspace = true, optional = true }

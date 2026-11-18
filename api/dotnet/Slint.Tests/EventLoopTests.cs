@@ -81,6 +81,7 @@ public sealed class EventLoopTests
             Environment.SetEnvironmentVariable("SLINT_BACKEND", "winit-software");
             StringAssert.Contains(Assert.ThrowsExactly<InvalidOperationException>(EventLoop.Run).Message, "[STAThread]");
             Assert.ThrowsExactly<InvalidOperationException>(() => definition.Create());
+            Assert.ThrowsExactly<InvalidOperationException>(() => ComponentInstance.CreateLive("app.slint", "App"));
         }
         finally
         {

@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ComboBox, ListView, Palette, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { MapsuiView } from "@mapsui";
+export { MapsuiHost } from "@mapsui";
+
+export component MainWindow inherits Window {
+    title: "Mapsui samples in Slint";
+    preferred-width: 1200px;
+    preferred-height: 800px;
+    in property <[string]> categories;
+    in-out property <int> category-index;
+    in property <[string]> samples;
+    in-out property <int> sample-index: -1;
+    in property <string> status;
+    callback category-selected(index: int);
+    callback sample-selected(index: int);
+
+    HorizontalBox {
+        VerticalBox {
+            padding: 0;
+            width: 280px;
+            ComboBox {
+                model: root.categories;
+                current-index <=> root.category-index;
+                selected => {
+                    root.category-selected(self.current-index);
+                }
+            }
+
+            ListView {
+                for name[index] in root.samples: Rectangle {
+                    height: 30px;
+                    border-radius: 4px;
+                    background: index == root.sample-index ? Palette.accent-background : touch.has-hover ? Palette.alternate-background : transparent;
+                    Text {
+                        x: 8px;
+                        width: parent.width - 16px;
+                        text: name;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        color: index == root.sample-index ? Palette.accent-foreground : Palette.foreground;
+                    }
+
+                    touch := TouchArea {
+                        clicked => {
+                            root.sample-index = index;
+                            root.sample-selected(index);
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: root.status;
+                wrap: word-wrap;
+            }
+        }
+
+        MapsuiView { }
+    }
+}

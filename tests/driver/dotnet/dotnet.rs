@@ -72,7 +72,10 @@ fn generate(
     let format = generator::OutputFormat::CSharp(csharp::Config {
         namespace: Some(format!("Case_{identifier}")),
         runtime_path: Some(project.to_string_lossy().into_owned()),
+        live_preview: false,
         unit: true,
+        markup: false,
+        markup_builtins: false,
     });
     let mut config = CompilerConfiguration::new(format.clone());
     config.style = Some(STYLE.into());

@@ -28,12 +28,20 @@ pub struct Config {
     /// the `.slint` file, or the project directory, whose project file then applies at run time too.
     /// Defaults to the name of the input.
     pub runtime_path: Option<String>,
+    /// Load the input from its absolute source path instead, and reload components when it changes.
+    pub live_preview: bool,
     /// Run the unit that the assembly embeds as `slint-unit:` and the runtime path, from [`unit::compile()`],
     /// instead of compiling the input at startup, unless the unit doesn't apply.
     pub unit: bool,
+    /// Generate the builders of `Slint.Markup` instead, from [`markup::generate()`].
+    pub markup: bool,
+    /// With [`Config::markup`], generate the builders of `Slint.Markup` itself:
+    /// the built-in elements, the components that the input imports, and the base class.
+    pub markup_builtins: bool,
 }
 
-pub mod bundle;
+pub mod markup;
+#[cfg(feature = "serde")]
 pub mod unit;
 
 const CONVERSION: &str = "global::Slint.Generated.Conversion";
@@ -577,6 +585,9 @@ pub fn generate(
     config: &Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<String> {
+    if config.markup {
+        return Ok(markup::generate(doc, config));
+    }
     let unit = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
     let main_file = doc
         .node
@@ -672,6 +683,7 @@ pub fn generate(
             "Show",
             "Hide",
             "Run",
+            "RunAsync",
             "Dispose",
         ]);
 
@@ -697,6 +709,10 @@ pub fn generate(
         let _ = writeln!(types, "    public void Hide() => Instance.Hide();");
         if is_window {
             let _ = writeln!(types, "    public void Run() => Instance.Run();");
+            let _ = writeln!(
+                types,
+                "    public global::System.Threading.Tasks.Task RunAsync() => Instance.RunAsync();"
+            );
         }
         let _ = writeln!(types, "    public void Dispose() => Instance.Dispose();");
         if is_window {
@@ -746,7 +762,7 @@ pub fn generate(
         .sorted_by(|a, b| a.0.cmp(b.0))
         .map(|(name, path)| format!("[{}] = {}", string_literal(name), absolute(path)))
         .join(", ");
-    // Named arguments of GeneratedApi.Load, for the options that aren't their defaults.
+    // Named arguments of GeneratedApi.Load and CreateLive, for the options that aren't their defaults.
     let mut translation_args = String::new();
     if let Some(domain) = &compiler_config.translation_domain {
         let _ = write!(translation_args, ", translationDomain: {}", string_literal(domain));
@@ -773,12 +789,17 @@ pub fn generate(
         "    public static global::Slint.ComponentInstance Create(string name, global::Slint.Generated.ExpectedApi api)\n    {{"
     );
     let style = compiler_config.style.as_deref().map_or("null".into(), string_literal);
-    let path = format!(
-        "global::System.IO.Path.Combine(global::Slint.Generated.GeneratedApi.BaseDirectory, {})",
-        string_literal(&runtime_path)
-    );
+    let path = if config.live_preview {
+        let source = std::path::absolute(input).unwrap_or_else(|_| input.to_owned());
+        string_literal(&source.to_string_lossy())
+    } else {
+        format!(
+            "global::System.IO.Path.Combine(global::Slint.Generated.GeneratedApi.BaseDirectory, {})",
+            string_literal(&runtime_path)
+        )
+    };
     let _ = writeln!(out, "        var path = {path};");
-    if config.unit {
+    if config.unit && !config.live_preview {
         let unit_style = compiler_config.style.as_deref().unwrap_or("fluent");
         let _ = writeln!(
             out,
@@ -795,10 +816,17 @@ pub fn generate(
     let globals = format!(
         "new global::System.Collections.Generic.Dictionary<string, global::Slint.Generated.ExpectedApi> {{ {expected_globals} }}"
     );
-    let _ = writeln!(
-        out,
-        "        return global::Slint.Generated.GeneratedApi.Create(s_result, {generated_file}, name, api, {globals});"
-    );
+    if config.live_preview {
+        let _ = writeln!(
+            out,
+            "        return global::Slint.Generated.GeneratedApi.CreateLive(s_result, path, {style}, {generated_file}, name, api, {globals}, s_includePaths, s_libraryPaths{translation_args});"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "        return global::Slint.Generated.GeneratedApi.Create(s_result, {generated_file}, name, api, {globals});"
+        );
+    }
     let _ = writeln!(out, "    }}\n}}");
     Ok(out)
 }

@@ -149,4 +149,29 @@ assert!(!instance.get_input1_focused());
 assert!(!instance.get_input2_focused());
 assert!(instance.get_input3_focused());
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Input1Focused);
+Assert.IsFalse(instance.Input2Focused);
+Testing.SendMouseClick(instance.Instance, 150, 100);
+Assert.IsTrue(instance.Input1Focused);
+Assert.IsFalse(instance.Input2Focused);
+Testing.SendKeyboardStringSequence(instance.Instance, "Only for field 1");
+Assert.AreEqual("Only for field 1", instance.Input1Text);
+Assert.AreEqual("", instance.Input2Text);
+Testing.SendMouseClick(instance.Instance, 150, 300);
+Assert.IsFalse(instance.Input1Focused);
+Assert.IsTrue(instance.Input2Focused);
+Testing.SendKeyboardStringSequence(instance.Instance, "Only for field 2");
+Assert.AreEqual("Only for field 1", instance.Input1Text);
+Assert.AreEqual("Only for field 2", instance.Input2Text);
+Testing.SendMouseClick(instance.Instance, 150, 500);
+Assert.IsFalse(instance.Input2Focused);
+Assert.IsTrue(instance.Input3Focused);
+// Tab into a multi-line input doesn't select all, so typing inserts at the cursor.
+Testing.SendKeyboardStringSequence(instance.Instance, "\t\tX");
+Assert.IsTrue(instance.Input2Focused);
+Assert.AreEqual("Only for field 2X", instance.Input2Text);
+```
 */

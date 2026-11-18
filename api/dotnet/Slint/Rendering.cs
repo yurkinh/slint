@@ -25,7 +25,7 @@ public enum GraphicsApiKind
     Other,
     /// <summary>OpenGL or OpenGL ES; load its functions with <see cref="GraphicsApi.GetProcAddress"/>.</summary>
     NativeOpenGL,
-    /// <summary>WebGL.</summary>
+    /// <summary>WebGL in a browser.</summary>
     WebGL,
 }
 

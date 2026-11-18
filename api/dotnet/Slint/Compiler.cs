@@ -174,6 +174,30 @@ public sealed unsafe class Compiler : IDisposable
         return new CompilationResult(result);
     }
 
+    /// <summary>
+    /// Compiles <paramref name="source"/> with the current edition into a unit, which <see cref="CompilationResult.FromUnit"/> runs,
+    /// or returns <c>null</c> if it doesn't compile.
+    /// </summary>
+    internal byte[]? BuildUnit(string source, string path)
+    {
+        using var sourceStr = new PinnedUtf8(source);
+        using var pathStr = new PinnedUtf8(path);
+        var bytes = NativeMethods.slint_dotnet_compiler_build_unit(_handle, sourceStr.Str, pathStr.Str);
+        if (bytes == 0)
+        {
+            NativeError.TakeMessage();
+            return null;
+        }
+        try
+        {
+            return new ReadOnlySpan<byte>(NativeMethods.slint_dotnet_bytes_data(bytes), checked((int)NativeMethods.slint_dotnet_bytes_len(bytes))).ToArray();
+        }
+        finally
+        {
+            NativeMethods.slint_dotnet_bytes_free(bytes);
+        }
+    }
+
     /// <summary>Releases the native compiler.</summary>
     public void Dispose() => _handle.Dispose();
 }
@@ -220,6 +244,22 @@ public sealed record Diagnostic(DiagnosticLevel Level, string Message, string? S
 public sealed unsafe class CompilationResult : IDisposable
 {
     private readonly CompilationResultHandle _handle;
+
+    /// <summary>Runs a unit from <see cref="Compiler.BuildUnit"/> or the build, or returns <c>null</c> for one of another Slint version.</summary>
+    internal static CompilationResult? FromUnit(ReadOnlySpan<byte> unit)
+    {
+        fixed (byte* bytes = unit)
+        {
+            var result = NativeMethods.slint_dotnet_compilation_result_from_unit(bytes, (nuint)unit.Length);
+            if (result.IsInvalid)
+            {
+                result.Dispose();
+                NativeError.TakeMessage();
+                return null;
+            }
+            return new CompilationResult(result);
+        }
+    }
 
     internal CompilationResult(CompilationResultHandle handle)
     {

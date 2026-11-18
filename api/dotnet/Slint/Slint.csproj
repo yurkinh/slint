@@ -31,6 +31,7 @@
     <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)') and '$(TargetPlatformIdentifier)' != 'android'" CopyToOutputDirectory="PreserveNewest" Visible="false" Pack="false" />
     <InternalsVisibleTo Include="Slint.Tests" />
     <InternalsVisibleTo Include="Slint.TestDriver" />
+    <InternalsVisibleTo Include="Slint.Markup" />
     <!-- NuGet imports build/<package id>.targets, so the file takes the name of the package. -->
     <None Include="build/Slint.targets" Pack="true" PackagePath="build/$(PackageId).targets" />
     <None Include="../README.md" Pack="true" PackagePath="/" />
@@ -38,6 +39,11 @@
     <None Include="$(SlintNativeRuntimesDir)/**/*" Pack="true" PackagePath="runtimes/%(RecursiveDir)native/%(Filename)%(Extension)" Condition="'$(SlintNativeRuntimesDir)' != ''" />
     <!-- Pass SlintIOSFramework to pack, the slint_dotnet.xcframework of scripts/build_dotnet_ios.sh, which Slint.targets finds in ios/. -->
     <None Include="$(SlintIOSFramework)/**/*" Pack="true" PackagePath="ios/slint_dotnet.xcframework/" Condition="'$(SlintIOSFramework)' != ''" />
+    <!-- Pass SlintBrowserLibrary to pack, the slint_dotnet.a of scripts/build_dotnet_browser.sh, which Slint.targets finds in browser/ with Slint's JavaScript glue. -->
+    <None Include="$(SlintBrowserLibrary);../../../internal/backends/emscripten/slint_emscripten.js" Pack="true" PackagePath="browser/" Condition="'$(SlintBrowserLibrary)' != ''" />
+    <!-- The generator of [SlintViewModel], built first and packed as an analyzer, which Slint.targets adds in this repository. -->
+    <ProjectReference Include="../Slint.SourceGenerator/Slint.SourceGenerator.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <None Include="../Slint.SourceGenerator/$(BaseOutputPath)$(Configuration)/netstandard2.0/Slint.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <!-- Becomes the dependency on the compiler package. -->
     <ProjectReference Include="../Slint.Compiler/Slint.Compiler.csproj" PrivateAssets="none" />
   </ItemGroup>
